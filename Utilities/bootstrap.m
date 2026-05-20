@@ -1,7 +1,7 @@
-function [discount_factor, forward] = bootstrap(P, C, K)
+function [discount_factor, forward, R2] = bootstrap(P, C, K)
 % BOOTSTRAP  Synthetic discount factor and forward price from option prices.
 %
-%   [discount_factor, forward] = BOOTSTRAP(P, C, K) implements the
+%   [discount_factor, forward, R2] = BOOTSTRAP(P, C, K) implements the
 %   synthetic-forward technique of Azzone & Baviera (2022), "Synthetic
 %   forwards and cost of funding in the equity derivative market", for a
 %   single maturity T. Starting from put-call parity
@@ -16,7 +16,7 @@ function [discount_factor, forward] = bootstrap(P, C, K)
 %   F = beta0 / D. Vectors P, C, K must contain mid-quotes of European
 %   puts, calls and the corresponding strikes for the same maturity.
 %
-%   Inputs are assumed to be mid-quotes. Only the penny-option filter
+%   Inputs are mid-quotes. Only the penny-option filter
 %   (price > 0.1) is applied; the bid-ask spread filter of the paper
 %   is not, as bid/ask data are not available.
 %
@@ -28,6 +28,10 @@ function [discount_factor, forward] = bootstrap(P, C, K)
 %   Outputs
 %     discount_factor : scalar D(t,T)
 %     forward         : scalar F(t,T)
+%     R2              : coefficient of determination of the OLS fit, a
+%                       goodness-of-fit diagnostic: values close to 1 mean
+%                       put-call parity holds tightly across strikes, lower
+%                       values flag noisy / poorly identified maturities.
 
 if length(P) ~= length(C) || length(P) ~= length(K)
     error("P, C and K must have the same length");
@@ -48,6 +52,14 @@ C = C(mask);
 P = P(mask);
 K = K(mask);
 
+% at least 3 surviving strikes are required: 2 to identify the line and
+% 1 more so that R2 is a meaningful diagnostic
+if numel(K) < 3
+    error("bootstrap:tooFewQuotes", ...
+          "only %d strike(s) left after the penny filter (need >= 3)", ...
+          numel(K));
+end
+
 % OLS on put-call parity: G = -D*K + D*F  =>  x(1) = -D, x(2) = D*F
 G = C - P;
 A = [K, ones(length(K), 1)];
@@ -55,5 +67,15 @@ x = A \ G;
 
 discount_factor = -x(1);
 forward         =  x(2) / discount_factor;
+
+% goodness of fit: R2 = 1 - SS_res / SS_tot
+residual = G - A * x;
+SS_res   = sum(residual.^2);
+SS_tot   = sum((G - mean(G)).^2);
+if SS_tot > 0
+    R2 = 1 - SS_res / SS_tot;
+else
+    R2 = NaN;          % all G_i identical: R2 is undefined
+end
 
 end
