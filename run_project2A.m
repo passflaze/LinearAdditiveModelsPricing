@@ -18,15 +18,10 @@ call_atm = zeros(nT,1);
 
 for k = 1:nT
     [discount_factor(k), forward(k), R2(k)] = bootstrap(puts(k,:), calls(k,:), strikes);
-    call_atm(k) = callATM(calls(k,:), puts(k,:), strikes, forward(k));
+    call_atm(k) = callATM(calls(k,:), puts(k,:), strikes, forward(k), discount_factor(k));
 end
 
+act_365 = 3; % actual/365 day count convention for time to maturity
+yf = yearfrac(valueDate, expiries, act_365); 
+sigma_atm = sigmaATM(call_atm, discount_factor, yf,expiries);
 
-%% report
-fprintf("\nBootstrap results - value date %s\n", string(valueDate, "yyyy-MM-dd"));
-fprintf("%-12s  %10s  %10s  %8s\n", "Expiry", "D(t,T)", "F(t,T)", "R^2");
-for k = 1:nT
-    fprintf("%-12s  %10.6f  %10.4f  %8.4f\n", ...
-        string(expiries(k), "yyyy-MM-dd"), ...
-        discount_factor(k), forward(k), R2(k));
-end
