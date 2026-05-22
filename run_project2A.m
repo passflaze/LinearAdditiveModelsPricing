@@ -22,6 +22,41 @@ for k = 1:nT
 end
 
 act_365 = 3; % actual/365 day count convention for time to maturity
-yf = yearfrac(valueDate, expiries, act_365); 
-sigma_atm = sigmaATM(call_atm, discount_factor, yf,expiries);
+yf = yearfrac(valueDate, expiries, act_365);
+sigma_atm = sigmaATM(call_atm, discount_factor, yf, expiries);
+
+%% OTM filter + normalization → global calibration of eta and k
+% moneyness range [-30$, 30$] as in Baviera & Massaria (2026), Table 3
+xMax = 30;
+
+chi_cell   = cell(nT, 1);
+cNorm_cell = cell(nT, 1);
+
+for iT = 1:nT
+    F_k  = forward(iT);
+    B_k  = discount_factor(iT);
+    t_k  = yf(iT);
+    s_k  = sigma_atm(iT);
+    norm = B_k * s_k * sqrt(t_k);   % normalization factor
+
+    % OTM calls: 0 < K - F <= xMax
+    otm_c = (strikes > F_k) & (strikes <= F_k + xMax);
+    K_c   = strikes(otm_c)';
+    c_c   = calls(iT, otm_c)' / norm;
+
+    % OTM puts: -xMax <= K - F < 0 → converted to calls via put-call parity
+    % C = P + B*(F-K)  =>  C_norm = (P + B*(F-K)) / norm
+    otm_p = (strikes < F_k) & (strikes >= F_k - xMax);
+    K_p   = strikes(otm_p)';
+    c_p   = ( puts(iT, otm_p)' + B_k * (F_k - K_p) ) / norm;
+
+    chi_cell{iT}   = ([ K_p; K_c ] - F_k) / (s_k * sqrt(t_k));
+    cNorm_cell{iT} = [ c_p; c_c ];
+end
+
+chi_all   = vertcat(chi_cell{:});
+cNorm_all = vertcat(cNorm_cell{:});
+
+%% calibrate Additive Bachelier (global: eta and k constant across maturities)
+[kAB, eta, sigma_t, MSE] = calibrateAB(chi_all, cNorm_all, sigma_atm);
 

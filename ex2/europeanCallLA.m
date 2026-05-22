@@ -1,6 +1,7 @@
 function callPrice = europeanCallLA(F, B, K, phi, a)
+%  !!!TO BE DONE WITH FFT!!!
 % EUROPEANCALLLA  European Call price for Linear Additive processes.
-%
+%.  
 %   callPrice = EUROPEANCALLLA(F, B, K, phi)
 %   callPrice = EUROPEANCALLLA(F, B, K, phi, a)
 %
