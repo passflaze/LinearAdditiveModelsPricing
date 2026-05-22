@@ -16,14 +16,13 @@ xk = x1 + dx * j;
 
 a=-1/2; % countour offset for the Fourier inversion, in the strip of regularity of the cf
 
-
 phi=charateristic_function_AB(1,k,eta,1);
 
 int=@(csi) phi(csi+1i*a)./(1i*csi-a).^2;
 
 fj= arrayfun(int,xk) .* exp(-1i * z1 * dx .*j);
 
-f_hat= exp(a*xk) .* dx .* exp(-1i * x1 * zk) .* fft(fj);
+f_hat= exp(a*zk) .* dx .* exp(-1i * x1 * zk) .* fft(fj);
 
 I= interp1(zk, f_hat, x, 'spline');
 

@@ -1,6 +1,7 @@
 % data loading
 clear,clc
 addpath("Utilities/");
+addpath("ex2/");
 
 callpath="Data/datacalls";
 putpath="Data/dataputs";
@@ -39,14 +40,14 @@ for iT = 1:nT
     s_k  = sigma_atm(iT);
     norm = B_k * s_k * sqrt(t_k);   % normalization factor
 
-    % OTM calls: 0 < K - F <= xMax
-    otm_c = (strikes > F_k) & (strikes <= F_k + xMax);
+    % OTM calls: 0 < K - F <= xMax, quoted only (drop untraded NaN prices)
+    otm_c = (strikes > F_k) & (strikes <= F_k + xMax) & isfinite(calls(iT,:));
     K_c   = strikes(otm_c)';
     c_c   = calls(iT, otm_c)' / norm;
 
     % OTM puts: -xMax <= K - F < 0 → converted to calls via put-call parity
     % C = P + B*(F-K)  =>  C_norm = (P + B*(F-K)) / norm
-    otm_p = (strikes < F_k) & (strikes >= F_k - xMax);
+    otm_p = (strikes < F_k) & (strikes >= F_k - xMax) & isfinite(puts(iT,:));
     K_p   = strikes(otm_p)';
     c_p   = ( puts(iT, otm_p)' + B_k * (F_k - K_p) ) / norm;
 
@@ -58,5 +59,16 @@ chi_all   = vertcat(chi_cell{:});
 cNorm_all = vertcat(cNorm_cell{:});
 
 %% calibrate Additive Bachelier (global: eta and k constant across maturities)
-[kAB, eta, sigma_t, MSE] = calibrateAB(chi_all, cNorm_all, sigma_atm);
+[kAB, eta, sigma_t, MSE] = calibrateAB(chi_all, cNorm_all, sigma_atm)
+
+%% verify the fit visually: scatter of market vs model price on the chi grid
+chi_grid = linspace(min(chi_all), max(chi_all), 200)';
+G_model  = call_AB_FFT(chi_grid, kAB, eta);
+
+figure; hold on
+scatter(chi_all, cNorm_all, 12, 'filled')      % mercato
+plot(chi_grid, G_model, 'r-', 'LineWidth', 1.5) % modello
+xlabel('\chi'); ylabel('$\hat{G}(\chi)$','Interpreter','latex')
+legend('mercato','modello AB'); grid on
+
 
