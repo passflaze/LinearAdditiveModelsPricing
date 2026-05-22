@@ -1,4 +1,4 @@
-function [k,eta,sigma_t,MSE] = calibrateAB(marketNormMoneyness, marketNormCalls, sigmaATM)
+function [k,eta,sigma_t,rMSE] = calibrateAB(marketNormMoneyness, marketNormCalls, sigmaATM)
 
 % CALIBRATEAB  Calibrate the Additive Bachelier model parameters (k, eta) to market data.
 
@@ -23,6 +23,8 @@ k = param_opt(1);
 eta = param_opt(2); 
 I_0=I0(0,k,eta);
 sigma_t = sigmaATM /I_0;
+
+rMSE = sqrt(MSE/numel(marketNormCalls)); % root mean squared error
 
 end
 
