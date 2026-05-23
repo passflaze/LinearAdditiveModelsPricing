@@ -46,12 +46,32 @@ function y = complex_gamma(z)
     end
     
     % 4. Branch 2: Euler's Reflection Formula (Re(z) < 0.5)
+    % if any(reflect_mask)
+    %     z_ref = z(reflect_mask);
+    % 
+    %     % Recursive call: since real(1 - z_ref) >= 0.5, the next step 
+    %     % will naturally hit the direct branch, preventing infinite loops.
+    %     y(reflect_mask) = pi ./ (sin(pi * z_ref) .* complex_gamma(1 - z_ref));
+    % end
     if any(reflect_mask)
         z_ref = z(reflect_mask);
         
-        % Recursive call: since real(1 - z_ref) >= 0.5, the next step 
-        % will naturally hit the direct branch, preventing infinite loops.
-        y(reflect_mask) = pi ./ (sin(pi * z_ref) .* complex_gamma(1 - z_ref));
+        % Compute the two denominator components separately
+        den_1 = sin(pi * z_ref);
+        den_2 = complex_gamma(1 - z_ref);
+        
+        % Evaluate the reflection formula. 
+        % High imaginary frequencies will trigger an 'Inf * 0' indeterminate form, resulting in NaNs.
+        y_temp = pi ./ (den_1 .* den_2);
+        
+        % --- QUANT PATCH ---
+        % Analytically, the complex Gamma function decays exponentially to 0 along the imaginary axis.
+        % If MATLAB generates a NaN due to floating-point Inf*0 collision at high frequencies,
+        % we override it and enforce the mathematically correct asymptotic limit of 0.
+        is_high_freq_nan = isnan(y_temp) & (abs(imag(z_ref)) > 10);
+        y_temp(is_high_freq_nan) = 0;
+        
+        y(reflect_mask) = y_temp;
     end
     
     % 5. Numerical cleaning of infinitesimal imaginary parts
@@ -59,4 +79,8 @@ function y = complex_gamma(z)
     epsilon = 1e-12;
     pure_real_indices = abs(imag(y)) <= epsilon;
     y(pure_real_indices) = real(y(pure_real_indices));
+    if any(isnan(y(:)) & ~isnan(z(:)))
+        warning('ComplexGamma:NaNOutput', ...
+                'complex_gamma generated NaN values for valid inputs.');
+    end
 end

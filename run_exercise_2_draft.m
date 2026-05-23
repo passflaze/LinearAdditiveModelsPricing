@@ -2,7 +2,7 @@
 clear,clc
 addpath("Utilities/");
 addpath("Functions/");
-
+%%
 callpath="Data/datacalls";
 putpath="Data/dataputs";
 expiryFile = "Data/Expiries_Futures.txt";
@@ -45,125 +45,70 @@ end
 
 yf = yearfrac(valueDate, expiries, 3);
 sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries);
+[moneyness_modified, c_mkt_calibration_normed, norm_factor] = moneyness_generator(forward,strikes,calls,puts,sigma_ATM,yf,discount_factor);
+c_mkt_calibration = c_mkt_calibration_normed.*norm_factor;
 
-%% step 2 : defining pricefunctions 
- 
-M = length(forward);
-N = length(strikes);
 
-moneyness_modified = NaN(M, N);
-c_mkt_calibration  = NaN(M, N);
 
-for i = 1:M
-    mask = strikes > forward(i);
+%% MA calibration
+% step 3 : calibrate market prices via fmincon (bounded, SSE objective)
+x0 = [0.5, 0.5];               
+lb = [1e-4, 1e-4];             % positivity (replaces the discontinuous 1e10 penalty)
+ub = [50,  50];                % loose upper cap
 
-    moneyness_modified(i, mask) = (strikes(mask) - forward(i)) / (sigma_ATM(i) * sqrt(yf(i)));
-   
-    c_mkt_calibration(i, mask) = calls(i, mask);
-end
+options = optimoptions('fmincon', ...
+    'Display', 'iter', ...
+    'Algorithm', 'interior-point', ...
+    'FunctionTolerance',   1e-10, ...
+    'StepTolerance',       1e-10, ...
+    'OptimalityTolerance', 1e-8, ...
+    'MaxFunctionEvaluations', 5000);
 
-%% EXERCISE 2 : MA MODEL
+fprintf('\n--- Launching Volatility Surface Calibration via fmincon ---\n');
+obj_fun_MA = @(x) objective_function_MA(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration_normed);
 
-% step 3 : calibrate market prices 
-x0 = [1.1,1.2];
-% 4. Set optimization options for fminsearch
-options = optimset('Display', 'iter', 'TolX', 1e-6, 'TolFun', 1e-6);
+[x_opt, fval, exitflag] = fmincon(obj_fun_MA, x0, [], [], [], [], lb, ub, [], options);
 
-% 5. Run fminsearch (Notice: no bounds lb, ub are passed here!)
-fprintf('\n--- Launching Volatility Surface Calibration via fminsearch ---\n');
-obj_fun = @(x) objective_function_MA(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration);
-
-% Run the simplex optimizer
-x_opt = fminsearch(obj_fun, x0, options);
-
-% 6. Map optimal parameters back into the structured model format
 alpha_MA = x_opt(1);
-beta_MA  = x_opt(2);
-gamma_MA = (1/alpha_MA) - (1/beta_MA);
-C_MA     = 1 / ((1/beta_MA) + (1/alpha_MA)); 
-I_0=I0_MA(gamma_MA,C_MA,alpha_MA,beta_MA);
-sigma_MA = sigma_ATM /I_0;
+beta_MA = x_opt(2);
 
-fprintf('\nCalibration completed.\n');
+fprintf('\nCalibration completed (exitflag = %d, SSE = %.6g).\n', exitflag, fval);
 fprintf('Optimal Alpha: %.6f\n', alpha_MA);
 fprintf('Optimal Beta : %.6f\n', beta_MA);
-fprintf('Optimal sigma structure: [ %s ]\n', num2str(sigma_MA(:)', '%.6f '));
+%% pricing trial
+params = [0.001295,32.012298];
+price_MA_prova = price_MA(params,discount_factor,yf,sigma_ATM,moneyness_modified);
 
-
-%% GL model : calibration 
-
-% step 3 : calibrate market prices 
-x0_GL = [0.5,0.5];
+%% Calibration via GL
+% step 3 : calibrate market prices via fmincon (bounded, SSE objective)
 M = 15;
 dz = 2.5e-3;
-% 4. Set optimization options for fminsearch
-options = optimset('Display', 'iter', 'TolX', 1e-6, 'TolFun', 1e-6);
+x0 = [0.5, 0.5];               % asymmetric guess: WTI Covid period -> left tail heavier
+lb = [1e-4, 1e-4];             % positivity (replaces the discontinuous 1e10 penalty)
+ub = [50,  50];                % loose upper cap
 
-% 5. Run fminsearch (Notice: no bounds lb, ub are passed here!)
-fprintf('\n--- Launching Volatility Surface Calibration via fminsearch ---\n');
-obj_fun_GL = @(x) objective_function_GL(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration,M,dz);
+options = optimoptions('fmincon', ...
+    'Display', 'iter', ...
+    'Algorithm', 'interior-point', ...
+    'FunctionTolerance',   1e-10, ...
+    'StepTolerance',       1e-10, ...
+    'OptimalityTolerance', 1e-8, ...
+    'MaxFunctionEvaluations', 5000);
 
-% Run the simplex optimizer
-x_opt_GL = fminsearch(obj_fun_GL, x0_GL, options);
+fprintf('\n--- Launching Volatility Surface Calibration via fmincon ---\n');
+obj_fun_GL = @(x) objective_function_GL(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration_normed,M,dz);
 
-% 6. Map optimal parameters back into the structured model format
-alpha_GL = x_opt_GL(1);
-beta_GL  = x_opt_GL(2);
+[x_opt, fval, exitflag] = fmincon(obj_fun_GL, x0, [], [], [], [], lb, ub, [], options);
 
-fprintf('\nCalibration completed.\n');
+alpha_GL = x_opt(1);
+beta_GL  = x_opt(2);
+
+fprintf('\nCalibration completed (exitflag = %d, SSE = %.6g).\n', exitflag, fval);
 fprintf('Optimal Alpha: %.6f\n', alpha_GL);
 fprintf('Optimal Beta : %.6f\n', beta_GL);
 
-%% prova fourier pricing (funziona)
-alpha_GL = 0.9;
-beta_GL = 1.5;
-M = 15;
-dz = 2.5e-3;
+%% prova output
 
-prova = price_GL(alpha_GL, beta_GL, M, dz, discount_factor, sigma_ATM, yf, moneyness_modified);
-
-%% dà problemi !!
-alpha_GL = 0.5;
-beta_GL = 0.5;
-shift = beta_GL / 2;
-integrand = @(t) (1) ./ ((t - 1i*shift).^2) .* cf_GL(t - 1i*shift, alpha_GL, beta_GL);
-I0 = (-1 / sqrt(2*pi)) * real(quadgk(integrand, -inf, inf));
-
-
+provaGLprezzo = price_GL(alpha_GL, beta_GL, M, dz, discount_factor, sigma_ATM, yf, moneyness_modified);
 %%
-alpha_GL = 0.5;
-beta_GL = 0.5;
-M = 15;
-dz = 2.5e-3;
-shift = beta_GL / 2;             
-N = 2^(M);                    
-
-dx = (2*pi) / (N * dz);         
-
-zn = (dz * (N-1)) / 2;
-z1 = -zn;
-z_grid = z1 : dz : zn;
-
-xn = (dx * (N-1)) / 2;
-x1 = -xn;
-x_grid = x1 : dx : xn;
-%% adesso definisco il vettore che voglio dare in pasto all'algoritmo,
-% calcolato su ogni valore di x
-fourier_function = cf_GL(x_grid - 1i*shift, alpha_GL, beta_GL) ./ ((x_grid - 1i*shift).^2);
-j_minus_1 = 0:N-1;
-input_fft = fourier_function .* exp(-1i * z1 * dx * j_minus_1);
-%%
-fft_I0 = fft(input_fft); % ad ogni elemento viene applicato lo shift di fase di fourier
-%%
-prefactor = dx * exp(-1i * x1 * z_grid); % varia su z 
-I0_grid_surface = prefactor .* fft_I0; % risultato finale è un vettore sui valori della moneyness
-% tutti NaNs porcoeicecnwic
-
-%%
-alpha_GL = 0.5;
-beta_GL = 0.5;
-shift = beta_GL / 2; 
-integrand_draft = @(z) (-1 ./ (z - 1i*shift).^2) .* cf_GL(z - 1i*shift, alpha_GL, beta_GL);
-
-% 2. Passa la funzione a quadgk
-provaprova = quadgk(integrand_draft, -inf, inf);
+prova = cf_GL(xgrid-1i*beta_GL,alpha_GL, beta_GL);

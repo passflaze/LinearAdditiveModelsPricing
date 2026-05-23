@@ -42,7 +42,7 @@ function CallPrice = price_MA(params, discount_factor, yearfraction, sigma_ATM, 
     mask_greater = ~mask_less; 
     
     % --- Branch 1: Condition is True ---
-    core_value(mask_less) = (C / (alpha^2)) * exp(alpha * X(mask_less));
+    core_value(mask_less) = (C / (alpha^2)) * exp(alpha * X(mask_less)) - moneyness_modified(mask_less)*I0;
     
     % --- Branch 2: Condition is False ---
     core_value(mask_greater) = (C / (beta^2)) * exp(-beta * X(mask_greater));

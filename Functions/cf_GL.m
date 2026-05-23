@@ -29,4 +29,12 @@ function cf = cf_GL(z,alpha, beta)
     
     % --- Step 3: Assemble Final Vectorized Profile ---
     cf = (gamma_factor_1 ./ gamma_factor_2) .* exp(1i .* gamma_GL .* z);
+    nan_mask = isnan(cf) & ~isnan(z);
+    if any(nan_mask(:))
+        warning('CharacteristicFunction:NaNOutput', ...
+                'cf_GL generated NaN values for valid input frequencies. Enforcing analytical limit (0) via Quant Patch.');
+    end
+    
+    % --- Step 5: QUANT PATCH: Convert analytical collapses (NaNs) into physical limits (Zeros) ---
+    cf(nan_mask) = 0;
 end

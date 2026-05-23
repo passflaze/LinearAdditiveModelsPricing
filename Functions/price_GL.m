@@ -27,8 +27,9 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % =========================================================================
     % STEP 1: CALCULATE I0 (Normalization Constant) 
     % =========================================================================
-    I0 = I0_GL_fft(alpha, beta, M, dz, 0);
-    
+    integrand_mean = @(x) pdf_GL(alpha, beta, x) .* x;
+    I0 = quadgk(integrand_mean, 0, inf);
+
     % Check for mathematical invalidity of the constant
     if isnan(I0) || isinf(I0) || I0 == 0
         error('PricingEngine:I0_Invalid', 'I0 evaluated to an unphysical value (I0 = %f). Check cf_GL parameters.', I0);
@@ -38,10 +39,9 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % STEP 2: FFT GRID SETUP 
     % =========================================================================
     N = 2^(M);  
-    dz_mod = dz * I0;
-    dx = (2*pi) / (N * dz_mod);         
+    dx = (2*pi) / (N * dz);         
     
-    zn = (dz_mod * (N-1)) / 2;
+    zn = (dz * (N-1)) / 2;
     z1 = -zn;
     z_grid = z1 : dz : zn;
     
@@ -55,7 +55,8 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     prefactor = dx * exp(-1i * x1 * (z_grid));
     preprefactor = discount_factors .* (sigma_ATM / I0) .* sqrt(yf) .* (-exp(-shift .* modified_moneyness * I0) / (2*pi));
     
-    fourier_function = cf_GL(x_grid - 1i*shift, alpha, beta) ./ ((x_grid - 1i*shift).^2);
+    fourier_function1 = cf_GL(x_grid - 1i*shift, alpha, beta) ;
+    fourier_function = fourier_function1./ ((x_grid - 1i*shift).^2);
     
     j_minus_1 = 0:N-1;
     input_fft = fourier_function .* exp(-1i * z1 * dx * j_minus_1);
@@ -66,11 +67,16 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % =========================================================================
     % STEP 4: INTERPOLATION TO MARKET GRID
     % =========================================================================
-    try
-        call_GL_interp = interp1(z_grid, real(call_GL), modified_moneyness, 'spline');
-    catch ME
-        error('PricingEngine:InterpFailed', 'interp1 exploded. Ensure z_grid and call_GL are free of NaNs. Reason: %s', ME.message);
+    src = real(call_GL);
+    src_ok = isfinite(src);                              % filtra sorgente
+    mask = ~isnan(modified_moneyness);
+    call_GL_interp = nan(size(modified_moneyness));
+    
+    if nnz(src_ok) >= 2 && any(mask(:))
+        call_GL_interp(mask) = interp1(z_grid(src_ok), src(src_ok), ...
+                                        modified_moneyness(mask)*I0, 'spline');
     end
     
     call_GL_final = preprefactor .* call_GL_interp;
 end
+
