@@ -14,7 +14,11 @@ j = 0:N-1;
 zk = z1 + dz * j;
 xk = x1 + dx * j;
 
-a=-1/2; % countour offset for the Fourier inversion, in the strip of regularity of the cf
+% Lewis contour: must lie inside (-p+, p-) with p+- = +-eta + sqrt(eta^2 + 1/k)
+% (sigma_t = 1 inside the CF here, so the f_t-strip coincides with the zeta-strip).
+% Default -1/2 if safely inside; otherwise pull it back to a fraction of p+ with margin.
+p_plus = eta + sqrt(eta^2 + 1/k);
+a = max(-0.5, -0.45 * p_plus);
 
 phi=charateristic_function_AB(1,k,eta,1);
 
