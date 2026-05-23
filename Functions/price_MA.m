@@ -18,15 +18,11 @@ function CallPrice = price_MA(params, discount_factor, yearfraction, sigma_ATM, 
     beta  = params(2);
     
     % 2. Calculate model constants
-    gamma = (1/alpha) - (1/beta);
+    gamma_MA = (1/alpha) - (1/beta);
     C     = 1 / ((1/beta) + (1/alpha)); % Equivalent to (1/beta + 1/alpha)^(-1)
     
-    % 3. Calculate I0 based on the sign of gamma (I0 is a scalar)
-    if gamma > 0
-        I0 = sqrt(2*pi) * (C / (alpha^2)) * exp(-gamma * alpha);
-    else
-        I0 = sqrt(2*pi) * (C / (beta^2))  * exp(gamma * beta);
-    end
+    % 3. Calculate I0 based on the sign of gamma_MA (I0 is a scalar)
+    I0 = I0_MA(gamma_MA,C,alpha,beta);
     
     % 4. Pre-compute the maturity-dependent multiplier
     % Since discount_factor, sigma_ATM, and yearfraction are all (M x 1),
@@ -35,14 +31,14 @@ function CallPrice = price_MA(params, discount_factor, yearfraction, sigma_ATM, 
     
     % 5. Compute the exponential argument for the whole matrix
     % Resulting size is (M x K)
-    X = I0 * moneyness_modified - gamma;
+    X = I0 * moneyness_modified - gamma_MA;
     
     % 6. Vectorized conditional logic (replaces the scalar if-else)
     % Initialize the core exponential matrix with zeros (M x K)
     core_value = zeros(size(moneyness_modified));
     
     % Create logical masks for the two branches
-    mask_less    = (X < 0);  % Equivalent to I0*moneyness_modified < gamma
+    mask_less    = (X < 0);  % Equivalent to I0*moneyness_modified < gamma_MA
     mask_greater = ~mask_less; 
     
     % --- Branch 1: Condition is True ---

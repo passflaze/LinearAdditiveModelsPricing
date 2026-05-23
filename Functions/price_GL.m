@@ -27,13 +27,7 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % =========================================================================
     % STEP 1: CALCULATE I0 (Normalization Constant) 
     % =========================================================================
-    try
-        % Note: Argument order matched to the cf_GL signature below
-        integrand = @(t) (1) ./ ((t - 1i*shift).^2) .* cf_GL(t - 1i*shift, alpha, beta);
-        I0 = (-1 / sqrt(2*pi)) * real(quadgk(integrand, -inf, inf));
-    catch ME
-        error('PricingEngine:I0_Failed', 'quadgk failed to integrate I0 profile. Reason: %s', ME.message);
-    end
+    I0 = I0_GL_fft(alpha, beta, M, dz, 0);
     
     % Check for mathematical invalidity of the constant
     if isnan(I0) || isinf(I0) || I0 == 0
@@ -43,10 +37,11 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % =========================================================================
     % STEP 2: FFT GRID SETUP 
     % =========================================================================
-    N = 2^(M);                    
-    dx = (2*pi) / (N * dz * I0);         
+    N = 2^(M);  
+    dz_mod = dz * I0;
+    dx = (2*pi) / (N * dz_mod);         
     
-    zn = (dz * (N-1)) / 2;
+    zn = (dz_mod * (N-1)) / 2;
     z1 = -zn;
     z_grid = z1 : dz : zn;
     
@@ -57,13 +52,13 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % =========================================================================
     % STEP 3: CALCULATE CALL PRICES VIA FFT
     % =========================================================================
-    prefactor = dx * exp(-1i * x1 * (z_grid * I0));
+    prefactor = dx * exp(-1i * x1 * (z_grid));
     preprefactor = discount_factors .* (sigma_ATM / I0) .* sqrt(yf) .* (-exp(-shift .* modified_moneyness * I0) / (2*pi));
     
     fourier_function = cf_GL(x_grid - 1i*shift, alpha, beta) ./ ((x_grid - 1i*shift).^2);
     
     j_minus_1 = 0:N-1;
-    input_fft = fourier_function .* exp(-1i * (z1 * I0) * dx * j_minus_1);
+    input_fft = fourier_function .* exp(-1i * z1 * dx * j_minus_1);
     
     fft_call_prices = fft(input_fft);
     call_GL = prefactor .* fft_call_prices;
