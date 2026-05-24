@@ -34,12 +34,7 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
     zk = z1 + dz*j;              
     xk = x1 + dx*j;
 
-    % Lewis contour 
-    % Strip f_t = (-p+ * I_0, p- * I_0), with p+- = +- eta + sqrt(eta^2 + 1/k).
-    % For the Digital, the contour MUST satisfy a in (-p+, 0) strictly:
-    % a = 0 is the pole 1/(i xi - a).
-    I_0    = I0(0, k, eta);
-    p_plus = eta + sqrt(eta^2 + 1/k);
+    % Lewis contour parameter a: chosen after testing a range of values and based on eq (22-23) of BavieraManzoni (2026).
     a=-0.02;
 
     % Lewis integrand for the Digital.
