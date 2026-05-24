@@ -1,56 +1,71 @@
 function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
-    % Conditional complementary CDF (survival function) of the AB log-price
-    % increment between reset dates T1 and T2, computed via Lewis-FFT.
+    % Conditional CDF F_{T2|T1}(x) of the AB log-price increment between
+    % reset dates T1 and T2, via Lewis-FFT.
     %
-    % Returns 1 - F_{T2|T1}(x) 
-    % The CDF is obtained as F(x) = 1 - ccdf(x).
+    % Two-shift reconstruction (Baviera-Manzoni 2026, Sec. 5.3): computes the
+    % CDF twice, once with a shift on the negative side of the analyticity
+    % strip (accurate on the LEFT tail) and once on the positive side
+    % (accurate on the RIGHT tail), then glues the two at the median (x = 0).
     %
-    % sigma_T1, sigma_T2 = entries of sigma_t from calibrateAB, i.e. sigmaATM/I_0 (Eq.15).
-    % Calling convention:
+    % sigma_T1, sigma_T2 = entries of sigma_t from calibrateAB (sigmaATM/I_0).
     %   [~, ~, sigma_t, ~] = calibrateAB(...);
-    %   ccdf = ccdf_AB_FFT(eta, kAB, yf(iT1), yf(iT2), sigma_t(iT1), sigma_t(iT2));
-    %.  x is the vector of moneyness points where to evaluate the CCDF
+    %   cdf = ccdf_AB_FFT(eta, kAB, yf(iT1), yf(iT2), sigma_t(iT1), sigma_t(iT2), x);
     %
-    % Reference: Baviera-Massaria (2026).
-    % Kernel: Digital  D(x)/B0 = (e^{ax}/2pi) * int phi(xi+ia)/(i xi - a) e^{-i xi x} dxi
+    % x: column vector of log-price increment points where to evaluate the CDF.
 
+    phi_T1   = charateristic_function_AB(T1, k, eta, sigma_T1);
+    phi_T2   = charateristic_function_AB(T2, k, eta, sigma_T2);
+    phi_cond = @(u) phi_T2(u) ./ phi_T1(u);
 
-    phi_T1 = charateristic_function_AB(T1, k, eta, sigma_T1);
-    phi_T2 = charateristic_function_AB(T2, k, eta, sigma_T2);
-    phi_cond = @(u) phi_T2(u) ./ phi_T1(u);    % conditional CF T2 | T1 due to additivity
-
-    % FFT grid 
-    % Digital kernel decays as 1/|xi|, slower than the Call (1/|xi|^2),
-    % so we use a finer dz / larger N than call_AB_FFT.
-
-    M  = 15;
+    % --- FFT grid (shared by both reconstructions) ----------------------
+    M  = 16;
     dz = 0.0025;
     N  = 2^M;
     dx = 2*pi / (N*dz);
-
     z1 = -dz * (N-1) / 2;
     x1 = -dx * (N-1) / 2;
     j  = 0:N-1;
-    zk = z1 + dz*j;              
+    zk = z1 + dz*j;
     xk = x1 + dx*j;
 
-    % Lewis contour parameter a: chosen after testing a range of values and based on eq (22-23) of BavieraManzoni (2026).
-    a=-0.02;
+    grid = struct('zk', zk, 'xk', xk, 'x1', x1, 'z1', z1, 'dx', dx, 'j', j);
 
-    % Lewis integrand for the Digital.
-    % At extreme |xi|, both phi_T2 and phi_T1 decay to machine zero -> 0/0 = NaN.
-    % These tail contributions are numerically zero; replace NaN/Inf with 0.
+    % --- Analyticity strip of the conditional CF ------------------------
+    % Strip (in u-space): a in ( -p+/(sigma_T2*sqrt(T2)),  p-/(sigma_T2*sqrt(T2)) )
+    % Use the tighter scale (T2) since the T1 strip is wider.
+    p_plus  = eta + sqrt(eta^2 + 1/k);
+    p_minus = -eta + sqrt(eta^2 + 1/k);
+    sT2     = sigma_T2 * sqrt(T2);
+
+    a_neg = -0.49 * p_plus  / sT2;   % left edge of strip:  good for RIGHT tail, Ra = 1
+    a_pos = +0.49 * p_minus / sT2;   % right edge of strip: good for LEFT tail,  Ra = 0
+
+    % --- Two FFT reconstructions ----------------------------------------
+    x = x(:);
+    cdf_right = one_shift(phi_cond, x, a_neg, 1, grid);   % accurate for x > 0
+    cdf_left  = one_shift(phi_cond, x, a_pos, 0, grid);   % accurate for x < 0
+
+    % --- Glue at x = 0 (median for AB near eta ~ 0) ---------------------
+    cdf            = cdf_right;
+    left_mask      = x < 0;
+    cdf(left_mask) = cdf_left(left_mask);
+
+end
+
+% ----------------------------------------------------------------------
+function P = one_shift(phi_cond, x, a, Ra, g)
+% Single FFT reconstruction of the CDF using Baviera-Manzoni eq. (13)-(15):
+%   P(x) = Ra - (e^{-ap x}/(2 pi)) * int e^{-iux} phi(u - i ap) / (i (u - i ap)) du
+% In code convention ( a = -ap ):
+%   P(x) = Ra - real(FFT_output / (2 pi)) * exp(a * x)
+% with Ra = 1 for a < 0 and Ra = 0 for a > 0.
     int_kernel = @(csi) phi_cond(csi + 1i*a) ./ (1i*csi - a);
-    fk_raw = arrayfun(int_kernel, xk);
+    fk_raw = arrayfun(int_kernel, g.xk);
     fk_raw(~isfinite(fk_raw)) = 0;
-    fk = fk_raw .* exp(-1i * z1 * dx .* j);
+    fk = fk_raw .* exp(-1i * g.z1 * g.dx .* g.j);
 
-    f_hat =  dx .* exp(-1i * x1 * zk) .* fft(fk);
+    f_hat = g.dx .* exp(-1i * g.x1 * g.zk) .* fft(fk);
+    f_hat = interp1(g.zk, f_hat, x, 'spline');
 
-    f_hat = interp1(zk, f_hat, x, 'spline');
-
-    ccdf = real(f_hat(:) / (2*pi)).*exp(a*x);      % survival function = 1 - F(x)
-
-    cdf = 1 - ccdf;                      % CDF F(x) = 1 - ccdf(x)
-
+    P = Ra - real(f_hat(:) / (2*pi)) .* exp(a * x);
 end

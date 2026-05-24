@@ -86,15 +86,34 @@ legend('market','AB model'); grid on
 title(sprintf('AB calibration (paper Eq. 20): k = %.4f, \\eta = %.4f, rMSE = %.4f $', ...
               kAB, eta, rMSE));
 
-%% simulate the conditional distribution of the log-price increment between T1 and T2 via Lewis-FFT
+%% 3b: conditional CDF of the log-price increment between T1 and T2 via Lewis-FFT
+% Point 3c requires T1 = 6m, T2 = 1y -> closest available maturities are
+% idx 3 (DEC20, 5.52m) and idx 5 (JUN21, 11.47m).
+iT1 = 3;
+iT2 = 5;
+T1 = yf(iT1);
+T2 = yf(iT2);
+sigma_T1 = sigma_t(iT1);
+sigma_T2 = sigma_t(iT2);
 
-T1 = yf(2);
-T2 = yf(4);
-sigma_T1 = sigma_t(2);
-sigma_T2 = sigma_t(4);
-x=linspace(-30, 30, 200)';
+x_grid = linspace(-40, 40, 300)';        
+cdf = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid);
 
-cdf = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x);
+idx_b = find(cdf >= 0, 1, 'first'); % first idx where cdf >= 0
+idx_e = find(cdf <= 1, 1, 'last'); % last idx where cdf <= 1 
+x_valid = x_grid(idx_b:idx_e);
+cdf_valid = cdf(idx_b:idx_e);
+fprintf('Tail probability mass = %.2e\n : less than 1e-4', max(cdf_valid(1), 1 - cdf_valid(end)) );
+figure; hold on
+plot(x_valid, cdf_valid, 'b-', 'LineWidth', 1.5)
+xlabel('log-price increment'); ylabel('CDF')
+title(sprintf('Conditional CDF between T1 = %.2f and T2 = %.2f', T1, T2));
+grid on
+
+
+
+
+
 
 
 
