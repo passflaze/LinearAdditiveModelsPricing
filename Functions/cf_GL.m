@@ -25,11 +25,11 @@ function cf = cf_GL(z,alpha, beta)
     gamma_GL = psi(beta) - psi(alpha);
     
     gamma_factor_1 = (complex_gamma(alpha + 1i.*z) .* complex_gamma(beta - 1i.*z)) ./ complex_gamma(alpha + beta);
-    gamma_factor_2 = (gamma(alpha) * gamma(beta)) / gamma(alpha + beta);
+    gamma_factor_2 = exp(betaln(alpha, beta));
     
     % --- Step 3: Assemble Final Vectorized Profile ---
     cf = (gamma_factor_1 ./ gamma_factor_2) .* exp(1i .* gamma_GL .* z);
-    nan_mask = isnan(cf) & ~isnan(z);
+    nan_mask = (isnan(cf) | isinf(cf)) & ~isnan(z);
     if any(nan_mask(:))
         warning('CharacteristicFunction:NaNOutput', ...
                 'cf_GL generated NaN values for valid input frequencies. Enforcing analytical limit (0) via Quant Patch.');

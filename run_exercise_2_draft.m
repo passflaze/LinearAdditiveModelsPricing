@@ -52,8 +52,8 @@ c_mkt_calibration = c_mkt_calibration_normed.*norm_factor;
 
 %% MA calibration
 % step 3 : calibrate market prices via fmincon (bounded, SSE objective)
-x0 = [0.5, 0.5];               
-lb = [1e-4, 1e-4];             % positivity (replaces the discontinuous 1e10 penalty)
+x0 = [0.5, 3.5];               
+lb = [0.05, 0.05];             % positivity (replaces the discontinuous 1e10 penalty)
 ub = [50,  50];                % loose upper cap
 
 options = optimoptions('fmincon', ...
@@ -65,7 +65,7 @@ options = optimoptions('fmincon', ...
     'MaxFunctionEvaluations', 5000);
 
 fprintf('\n--- Launching Volatility Surface Calibration via fmincon ---\n');
-obj_fun_MA = @(x) objective_function_MA(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration_normed);
+obj_fun_MA = @(x) objective_function_MA(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration);
 
 [x_opt, fval, exitflag] = fmincon(obj_fun_MA, x0, [], [], [], [], lb, ub, [], options);
 
@@ -76,15 +76,15 @@ fprintf('\nCalibration completed (exitflag = %d, SSE = %.6g).\n', exitflag, fval
 fprintf('Optimal Alpha: %.6f\n', alpha_MA);
 fprintf('Optimal Beta : %.6f\n', beta_MA);
 %% pricing trial
-params = [0.001295,32.012298];
+params = [alpha_MA,beta_MA];
 price_MA_prova = price_MA(params,discount_factor,yf,sigma_ATM,moneyness_modified);
 
 %% Calibration via GL
 % step 3 : calibrate market prices via fmincon (bounded, SSE objective)
 M = 15;
 dz = 2.5e-3;
-x0 = [0.5, 0.5];               % asymmetric guess: WTI Covid period -> left tail heavier
-lb = [1e-4, 1e-4];             % positivity (replaces the discontinuous 1e10 penalty)
+x0 = [0.9, 0.5];              
+lb = [0.05, 0.05];             % positivity (replaces the discontinuous 1e10 penalty)
 ub = [50,  50];                % loose upper cap
 
 options = optimoptions('fmincon', ...
@@ -96,7 +96,7 @@ options = optimoptions('fmincon', ...
     'MaxFunctionEvaluations', 5000);
 
 fprintf('\n--- Launching Volatility Surface Calibration via fmincon ---\n');
-obj_fun_GL = @(x) objective_function_GL(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration_normed,M,dz);
+obj_fun_GL = @(x) objective_function_GL(x, discount_factor, yf, sigma_ATM, moneyness_modified, c_mkt_calibration,M,dz);
 
 [x_opt, fval, exitflag] = fmincon(obj_fun_GL, x0, [], [], [], [], lb, ub, [], options);
 
@@ -107,8 +107,22 @@ fprintf('\nCalibration completed (exitflag = %d, SSE = %.6g).\n', exitflag, fval
 fprintf('Optimal Alpha: %.6f\n', alpha_GL);
 fprintf('Optimal Beta : %.6f\n', beta_GL);
 
-%% prova output
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% prove output
 
+
+
+alpha_GL = 0.0023; beta_GL = 12.5542;
+M = 15;
+dz = 2.5e-3;
 provaGLprezzo = price_GL(alpha_GL, beta_GL, M, dz, discount_factor, sigma_ATM, yf, moneyness_modified);
 %%
+xgrid = linspace(-10,10,100);
+alpha_GL = 0.0023; beta_GL = 12.5542;
 prova = cf_GL(xgrid-1i*beta_GL,alpha_GL, beta_GL);
+
+%% 
+alpha_GL = 0.23; beta_GL = 42;
+integrand_mean = @(x) pdf_GL(alpha_GL, beta_GL, x) .* x;
+I0prova = quadgk(integrand_mean, -inf, inf)
