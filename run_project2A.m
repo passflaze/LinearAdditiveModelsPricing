@@ -103,6 +103,8 @@ Z    = sample_from_cdf(x_grid, cdf, Nsim);
 % visual check: MC histogram/CDF vs FFT theoretical
 plot_mc_check(Z, x_grid, cdf, T1, T2);
 
+[price, IC]= price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, Nsim, forward(iT2), discount_factor(iT2),x_grid, 1);
+
 
 
 
