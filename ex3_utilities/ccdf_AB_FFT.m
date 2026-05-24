@@ -1,4 +1,4 @@
-function ccdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
+function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
     % Conditional complementary CDF (survival function) of the AB log-price
     % increment between reset dates T1 and T2, computed via Lewis-FFT.
     %
@@ -40,18 +40,22 @@ function ccdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
     % a = 0 is the pole 1/(i xi - a).
     I_0    = I0(0, k, eta);
     p_plus = eta + sqrt(eta^2 + 1/k);
-    a      = max(-0.5, -0.45 * p_plus * I_0);
+    a=-0.02;
 
-    % Lewis integrand for the Digital 
+    % Lewis integrand for the Digital.
+    % At extreme |xi|, both phi_T2 and phi_T1 decay to machine zero -> 0/0 = NaN.
+    % These tail contributions are numerically zero; replace NaN/Inf with 0.
     int_kernel = @(csi) phi_cond(csi + 1i*a) ./ (1i*csi - a);
-    fk = arrayfun(int_kernel, xk) .* exp(-1i * z1 * dx .* j);
+    fk_raw = arrayfun(int_kernel, xk);
+    fk_raw(~isfinite(fk_raw)) = 0;
+    fk = fk_raw .* exp(-1i * z1 * dx .* j);
 
-    f_hat = exp(a*zk) .* dx .* exp(-1i * x1 * zk) .* fft(fk);
+    f_hat =  dx .* exp(-1i * x1 * zk) .* fft(fk);
 
-    f_hat = interp1(zk, f_hat, x(:), 'spline');
+    f_hat = interp1(zk, f_hat, x, 'spline');
 
-    ccdf = real(f_hat(:) / (2*pi));      % survival function = 1 - F(x)
+    ccdf = real(f_hat(:) / (2*pi)).*exp(a*x);      % survival function = 1 - F(x)
 
-    %cdf = 1 - ccdf;                      % CDF F(x) = 1 - ccdf(x)
+    cdf = 1 - ccdf;                      % CDF F(x) = 1 - ccdf(x)
 
 end

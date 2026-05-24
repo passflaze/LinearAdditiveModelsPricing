@@ -2,6 +2,7 @@
 clear,clc
 addpath("Utilities/");
 addpath("ex2/");
+addpath("ex3_utilities/");
 
 callpath="Data/datacalls";
 putpath="Data/dataputs";
@@ -84,5 +85,20 @@ xlabel('\chi'); ylabel('$\mathcal{G}(\chi)$','Interpreter','latex')
 legend('market','AB model'); grid on
 title(sprintf('AB calibration (paper Eq. 20): k = %.4f, \\eta = %.4f, rMSE = %.4f $', ...
               kAB, eta, rMSE));
+
+%% simulate the conditional distribution of the log-price increment between T1 and T2 via Lewis-FFT
+
+T1 = yf(2);
+T2 = yf(4);
+sigma_T1 = sigma_t(2);
+sigma_T2 = sigma_t(4);
+x=linspace(-30, 30, 200)';
+
+cdf = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x);
+
+
+
+
+
 
 
