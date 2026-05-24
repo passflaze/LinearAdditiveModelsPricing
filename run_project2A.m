@@ -67,7 +67,7 @@ normFact_all = vertcat(normFact_cell{:});
 
 %% calibrate Additive Bachelier (global: eta and k constant across maturities)
 % paper Eq. (20): SSE on dollar prices.
-[kAB, eta, sigma_t, rMSE] = calibrateAB(chi_all, cMkt_all, normFact_all, sigma_atm)
+[kAB, eta, sigma_t, rMSE] = calibrateAB(chi_all, cMkt_all, normFact_all, sigma_atm);
 
 %% verify the fit visually in normalized space (cleaner across maturities)
 % G_model = G(chi; eta, k) is the normalized model price (call_AB_FFT).
