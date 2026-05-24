@@ -52,9 +52,13 @@ c_mkt_calibration = c_mkt_calibration_normed.*norm_factor;
 
 %% MA calibration
 % step 3 : calibrate market prices via fmincon (bounded, SSE objective)
-x0 = [0.5, 3.5];               
-lb = [0.05, 0.05];             % positivity (replaces the discontinuous 1e10 penalty)
-ub = [50,  50];                % loose upper cap
+% Symmetric starting point (gamma_MA = 1/alpha - 1/beta = 0) avoids initializing
+% on a strongly skewed distribution. Bounds in [0.2, 10] keep 1/alpha and 1/beta
+% in [0.1, 5], so gamma_MA stays within a sensible range and the closed-form
+% bracket does not blow up numerically.
+x0 = [1.0, 1.0];
+lb = [0.2, 0.2];
+ub = [10,  10];
 
 options = optimoptions('fmincon', ...
     'Display', 'iter', ...
@@ -109,20 +113,18 @@ fprintf('Optimal Beta : %.6f\n', beta_GL);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% prove output
+%% diagnostica residui post-calibrazione
+c_mod_MA = price_MA([alpha_MA, beta_MA], discount_factor, yf, sigma_ATM, moneyness_modified);
+c_mod_GL = price_GL(alpha_GL, beta_GL, M, dz, discount_factor, sigma_ATM, yf, moneyness_modified);
 
+res_MA = c_mkt_calibration - c_mod_MA;
+res_GL = c_mkt_calibration - c_mod_GL;
 
-
-alpha_GL = 0.0023; beta_GL = 12.5542;
-M = 15;
-dz = 2.5e-3;
-provaGLprezzo = price_GL(alpha_GL, beta_GL, M, dz, discount_factor, sigma_ATM, yf, moneyness_modified);
-%%
-xgrid = linspace(-10,10,100);
-alpha_GL = 0.0023; beta_GL = 12.5542;
-prova = cf_GL(xgrid-1i*beta_GL,alpha_GL, beta_GL);
-
-%% 
-alpha_GL = 0.23; beta_GL = 42;
-integrand_mean = @(x) pdf_GL(alpha_GL, beta_GL, x) .* x;
-I0prova = quadgk(integrand_mean, -inf, inf)
+% RMSE per maturity
+fprintf('\n%-12s  %10s  %10s\n', 'Expiry', 'rMSE_MA', 'rMSE_GL');
+for i = 1:nT
+    r_MA_i = res_MA(i,:); r_MA_i = r_MA_i(~isnan(r_MA_i));
+    r_GL_i = res_GL(i,:); r_GL_i = r_GL_i(~isnan(r_GL_i));
+    fprintf('%-12s  %10.4f  %10.4f\n', string(expiries(i),'yyyy-MM-dd'), ...
+        sqrt(mean(r_MA_i.^2)), sqrt(mean(r_GL_i.^2)));
+end

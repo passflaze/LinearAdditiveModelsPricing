@@ -25,10 +25,14 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     shift = beta / 2;             
     
     % =========================================================================
-    % STEP 1: CALCULATE I0 (Normalization Constant) 
+    % STEP 1: CALCULATE I0 (Normalization Constant)
     % =========================================================================
+    % Convention from Baviera & Massaria (2026), Eq. 14-15: I0 := sqrt(2*pi) * E[zeta_+]
+    % so that sigma_t = sigma_ATM / I0 enforces the ATM Bachelier condition exactly.
+    % Without the sqrt(2*pi) factor the whole price surface is off by ~2.5x and the
+    % interpolation point modified_moneyness*I0 lands at the wrong moneyness.
     integrand_mean = @(x) pdf_GL(alpha, beta, x) .* x;
-    I0 = quadgk(integrand_mean, 0, inf);
+    I0 = sqrt(2*pi) * quadgk(integrand_mean, 0, inf);
 
     % Check for mathematical invalidity of the constant
     if isnan(I0) || isinf(I0) || I0 == 0

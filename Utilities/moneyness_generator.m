@@ -83,7 +83,9 @@ function [moneyness_modified, c_mkt_calibration_normed, norm_factor] = moneyness
     % =========================================================================
     % Ensure structural parameters form a column vector using (:) to prevent 
     % dimensional broadcasting mismatch crashes during matrix/vector division.
-    norm_factor = discount_factor(:) .* yf(:) .* sigma_ATM(:);
+    % Bachelier normalization (AB Eq. 5):  C/B_0 = sigma * sqrt(t) * c_b(...)
+    % => norm_factor must be B_0 * sigma_ATM * sqrt(t), NOT B_0 * sigma_ATM * t.
+    norm_factor = discount_factor(:) .* sigma_ATM(:) .* sqrt(yf(:));
     
     c_mkt_calibration_normed = c_mkt_calibration ./ norm_factor;
 
