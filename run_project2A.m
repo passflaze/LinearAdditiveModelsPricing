@@ -103,12 +103,52 @@ idx_b = find(cdf >= 0, 1, 'first'); % first idx where cdf >= 0
 idx_e = find(cdf <= 1, 1, 'last'); % last idx where cdf <= 1 
 x_valid = x_grid(idx_b:idx_e);
 cdf_valid = cdf(idx_b:idx_e);
-fprintf('Tail probability mass = %.2e\n : less than 1e-4', max(cdf_valid(1), 1 - cdf_valid(end)) );
-figure; hold on
-plot(x_valid, cdf_valid, 'b-', 'LineWidth', 1.5)
-xlabel('log-price increment'); ylabel('CDF')
-title(sprintf('Conditional CDF between T1 = %.2f and T2 = %.2f', T1, T2));
+fprintf('Tail probability mass = %.2e : less than 1e-4', max(cdf_valid(1), 1 - cdf_valid(end)) );
+
+Nsim = 1e5;
+U    = rand(Nsim, 1);
+Z    = interp1(cdf_valid, x_valid, U, 'spline');
+
+xb = x_valid(1);  xe = x_valid(end);
+Pb = cdf_valid(1); Pe = cdf_valid(end);
+lam_m = (log(cdf_valid(2)) - log(Pb)) / (x_valid(2) - xb);
+lam_p = (log(1 - cdf_valid(end-1)) - log(1 - Pe)) / (x_valid(end-1) - xe);
+
+% per coda sinistra (U < Pb):  U = Pb * exp(lam_m * (z - xb))  =>  z = xb + log(U/Pb)/lam_m
+% per coda destra (U > Pe):    1-U = (1-Pe) * exp(-lam_p * (z - xe)) => z = xe - log((1-U)/(1-Pe))/lam_p
+left  = U < Pb;
+right = U > Pe;
+Z(left)  = xb + log(U(left)/Pb) / lam_m;
+Z(right) = xe - log((1 - U(right))/(1 - Pe)) / lam_p;
+
+
+%% visualizzazione incrementi simulati T1 -> T2
+figure;
+
+% pannello 1: istogramma simulato vs PDF teorica (da CDF per diff finite)
+subplot(1,2,1)
+histogram(Z, 80, 'Normalization', 'pdf', 'FaceAlpha', 0.5)
+hold on
+pdf_approx = diff(cdf_valid) ./ diff(x_valid);   % f ≈ dF/dx
+x_mid      = (x_valid(1:end-1) + x_valid(2:end)) / 2;
+plot(x_mid, pdf_approx, 'r-', 'LineWidth', 1.5)
+xlabel('x = X_{T_2} - X_{T_1} [$]')
+ylabel('pdf')
+legend('MC', 'teorica (FFT)')
+title(sprintf('Incremento AB: T_1=%.2fy \\to T_2=%.2fy', T1, T2))
 grid on
+
+% pannello 2: CDF empirica vs CDF teorica
+subplot(1,2,2)
+[f_emp, x_emp] = ecdf(Z);
+plot(x_emp, f_emp, 'b-', 'LineWidth', 1.2); hold on
+plot(x_valid, cdf_valid, 'r--', 'LineWidth', 1.5)
+xlabel('x [$]'); ylabel('F(x)')
+legend('MC empirica', 'FFT teorica')
+xlim([-30 30]); grid on
+title('CDF: MC vs modello')
+
+
 
 
 
