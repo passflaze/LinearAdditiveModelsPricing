@@ -86,67 +86,22 @@ legend('market','AB model'); grid on
 title(sprintf('AB calibration (paper Eq. 20): k = %.4f, \\eta = %.4f, rMSE = %.4f $', ...
               kAB, eta, rMSE));
 
-%% 3b: conditional CDF of the log-price increment between T1 and T2 via Lewis-FFT
-% Point 3c requires T1 = 6m, T2 = 1y -> closest available maturities are
-% idx 3 (DEC20, 5.52m) and idx 5 (JUN21, 11.47m).
-iT1 = 3;
-iT2 = 5;
-T1 = yf(iT1);
-T2 = yf(iT2);
-sigma_T1 = sigma_t(iT1);
-sigma_T2 = sigma_t(iT2);
+%% 3b-3c: conditional CDF and MC simulation of the log-price increment T1 -> T2
+% T1 = 6m, T2 = 1y: closest available maturities idx 3 (5.52m) and idx 5 (11.47m).
+iT1 = 3;  iT2 = 5;
+T1 = yf(iT1);  T2 = yf(iT2);
+sigma_T1 = sigma_t(iT1);  sigma_T2 = sigma_t(iT2);
 
-x_grid = linspace(-40, 40, 300)';        
-cdf = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid);
+% 3b: conditional CDF via Lewis-FFT (Baviera-Manzoni 2026, eq. 13-15)
+x_grid = linspace(-40, 40, 300)';
+cdf    = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid);
 
-idx_b = find(cdf >= 0, 1, 'first'); % first idx where cdf >= 0
-idx_e = find(cdf <= 1, 1, 'last'); % last idx where cdf <= 1 
-x_valid = x_grid(idx_b:idx_e);
-cdf_valid = cdf(idx_b:idx_e);
-fprintf('Tail probability mass = %.2e : less than 1e-4', max(cdf_valid(1), 1 - cdf_valid(end)) );
-
+% 3c: simulate increments via inverse-CDF + exponential tail extrapolation
 Nsim = 1e5;
-U    = rand(Nsim, 1);
-Z    = interp1(cdf_valid, x_valid, U, 'spline');
+Z    = sample_from_cdf(x_grid, cdf, Nsim);
 
-xb = x_valid(1);  xe = x_valid(end);
-Pb = cdf_valid(1); Pe = cdf_valid(end);
-lam_m = (log(cdf_valid(2)) - log(Pb)) / (x_valid(2) - xb);
-lam_p = (log(1 - cdf_valid(end-1)) - log(1 - Pe)) / (x_valid(end-1) - xe);
-
-% per coda sinistra (U < Pb):  U = Pb * exp(lam_m * (z - xb))  =>  z = xb + log(U/Pb)/lam_m
-% per coda destra (U > Pe):    1-U = (1-Pe) * exp(-lam_p * (z - xe)) => z = xe - log((1-U)/(1-Pe))/lam_p
-left  = U < Pb;
-right = U > Pe;
-Z(left)  = xb + log(U(left)/Pb) / lam_m;
-Z(right) = xe - log((1 - U(right))/(1 - Pe)) / lam_p;
-
-
-%% visualizzazione incrementi simulati T1 -> T2
-figure;
-
-% pannello 1: istogramma simulato vs PDF teorica (da CDF per diff finite)
-subplot(1,2,1)
-histogram(Z, 80, 'Normalization', 'pdf', 'FaceAlpha', 0.5)
-hold on
-pdf_approx = diff(cdf_valid) ./ diff(x_valid);   % f ≈ dF/dx
-x_mid      = (x_valid(1:end-1) + x_valid(2:end)) / 2;
-plot(x_mid, pdf_approx, 'r-', 'LineWidth', 1.5)
-xlabel('x = X_{T_2} - X_{T_1} [$]')
-ylabel('pdf')
-legend('MC', 'teorica (FFT)')
-title(sprintf('Incremento AB: T_1=%.2fy \\to T_2=%.2fy', T1, T2))
-grid on
-
-% pannello 2: CDF empirica vs CDF teorica
-subplot(1,2,2)
-[f_emp, x_emp] = ecdf(Z);
-plot(x_emp, f_emp, 'b-', 'LineWidth', 1.2); hold on
-plot(x_valid, cdf_valid, 'r--', 'LineWidth', 1.5)
-xlabel('x [$]'); ylabel('F(x)')
-legend('MC empirica', 'FFT teorica')
-xlim([-30 30]); grid on
-title('CDF: MC vs modello')
+% visual check: MC histogram/CDF vs FFT theoretical
+plot_mc_check(Z, x_grid, cdf, T1, T2);
 
 
 
