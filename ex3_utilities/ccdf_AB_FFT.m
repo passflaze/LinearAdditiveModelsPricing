@@ -13,9 +13,13 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
     %
     % x: column vector of log-price increment points where to evaluate the CDF.
 
-    phi_T1   = charateristic_function_AB(T1, k, eta, sigma_T1);
     phi_T2   = charateristic_function_AB(T2, k, eta, sigma_T2);
-    phi_cond = @(u) phi_T2(u) ./ phi_T1(u);
+    if T1 == 0
+        phi_cond = phi_T2;
+    else
+        phi_T1   = charateristic_function_AB(T1, k, eta, sigma_T1);
+        phi_cond = @(u) phi_T2(u) ./ phi_T1(u);
+    end
 
     % FFT grid 
     M  = 16;
