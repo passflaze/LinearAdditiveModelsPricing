@@ -25,6 +25,9 @@ function [price, IC] = price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, ...
 %   price : MC estimator of B(0,T2) * E_0[(S(T2) - K*F(T1,T2))_+]
 %   IC    : 95% confidence interval [lo, hi]
 
+seed = 1;  % for reproducibility
+rng(seed);
+
 % --- marginal CDF (0 -> T1) for the T2-forward ----------------------------
 % Lemma 2 (Forward.pdf, Sec. 1.2): x_{T1}^{T2} = D(T1,T2) * x_{T1}^{T1}
 % where D = B(0,T1)/B(0,T2). Equivalently, x_{T1}^{T2} ~ AB(eta,k,sigma_T2,T1)
