@@ -103,7 +103,21 @@ Z    = sample_from_cdf(x_grid, cdf, Nsim);
 % visual check: MC histogram/CDF vs FFT theoretical
 plot_mc_check(Z, x_grid, cdf, T1, T2);
 
-[price, IC]= price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, Nsim, forward(iT2), discount_factor(iT2),x_grid, 1);
+% 3d: forward-start option pricing  K=1 -> payoff = max(Z_{2|1}, 0)
+[price, IC] = price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, Nsim, ...
+                           forward(iT2), discount_factor(iT2), x_grid, 1);
+
+% FFT reference: E[max(Z_{2|1},0)] = integral_0^inf (1-F_cond(x)) dx
+% x_grid may not contain x=0 exactly, so we interpolate F(0) to avoid
+% truncating the integral over [0, first positive grid point].
+F0       = interp1(x_grid, cdf, 0, 'spline');
+mask_pos = x_grid > 0;
+price_fft = discount_factor(iT2) * trapz([0; x_grid(mask_pos)], ...
+                                          1 - [F0; cdf(mask_pos)]);
+
+fprintf('--- Forward-start option (K=1, T1=%.2fy, T2=%.2fy) ---\n', T1, T2);
+fprintf('FFT reference : %.4f\n', price_fft);
+fprintf('MC estimate   : %.4f  95%% CI [%.4f, %.4f]\n', price, IC(1), IC(2));
 
 
 

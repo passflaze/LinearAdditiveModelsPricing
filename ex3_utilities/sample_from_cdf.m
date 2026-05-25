@@ -50,7 +50,7 @@ xb = x_v(1);   xe = x_v(end);
 Pb = c_v(1);   Pe = c_v(end);
 
 lam_m = (log(c_v(2))     - log(Pb))       / (x_v(2)     - xb);
-lam_p = (log(1 - c_v(end-1)) - log(1 - Pe)) / (x_v(end-1) - xe);
+lam_p = (log(1 - c_v(end-1)) - log(1 - Pe)) / (xe - x_v(end-1));  % > 0
 
 left  = U < Pb;
 right = U > Pe;

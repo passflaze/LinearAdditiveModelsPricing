@@ -25,14 +25,15 @@ function [price, IC] = price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, ...
 %   price : MC estimator of B(0,T2) * E_0[(S(T2) - K*F(T1,T2))_+]
 %   IC    : 95% confidence interval [lo, hi]
 
-% --- marginal CDF (0 -> T1) -----------------------------------------------
-% marginal x_{T1} has a different (typically larger) spread, so we rebuild
-% a dedicated grid scaled to ~8 std, avoiding sample_from_cdf:tails warning.
+% --- marginal CDF (0 -> T1) for the T2-forward ----------------------------
+% Lemma 2 (Forward.pdf, Sec. 1.2): x_{T1}^{T2} = D(T1,T2) * x_{T1}^{T1}
+% where D = B(0,T1)/B(0,T2). Equivalently, x_{T1}^{T2} ~ AB(eta,k,sigma_T2,T1)
+% so we use sigma_T2 here to get Z_1 ~ x_{T1}^{T2} directly.
 % AB variance: Var(x_T) = sigma_T^2 * T * (1 + eta^2 * k).
-std_T1    = sigma_T1 * sqrt(T1) * sqrt(1 + eta^2 * kAB);
+std_T1    = sigma_T2 * sqrt(T1) * sqrt(1 + eta^2 * kAB);
 x_grid_T1 = linspace(-8*std_T1, 8*std_T1, numel(x_grid))';
 
-cdf_1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T1, x_grid_T1);
+cdf_1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T2, x_grid_T1);
 Z_1   = sample_from_cdf(x_grid_T1, cdf_1, Nsim);
 
 % --- conditional CDF (T1 -> T2) -------------------------------------------
