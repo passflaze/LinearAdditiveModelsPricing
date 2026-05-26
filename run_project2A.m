@@ -127,7 +127,7 @@ fprintf('MC estimate   : %.4f  95%% CI [%.4f, %.4f]\n', price, IC(1), IC(2));
 %% 4a Call-on-Call (CoC) via Lewis-FFT + MC
 % Inner strike K2 = F(t0,T2); CoC payoff at T1 = max( C(T1; K2, T2) - K1, 0 ).
 K1 = 1;   % outer strike (placeholder, set per project spec)
-
+Nsim = 1e7;  % increase for tighter CI on CoC price
 var_T1   = sigma_T1^2 * T1 * (1 + eta^2 * kAB);
 var_T2   = sigma_T2^2 * T2 * (1 + eta^2 * kAB);
 x_grid   = linspace(-8*sqrt(var_T2 - var_T1), 8*sqrt(var_T2 - var_T1), 300)';
