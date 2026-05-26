@@ -44,12 +44,12 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
     a_neg = -0.49 * p_plus  / sT2;   % left edge of strip:  good for RIGHT tail, Ra = 1
     a_pos = +0.49 * p_minus / sT2;   % right edge of strip: good for LEFT tail,  Ra = 0
 
-    % Two FFT reconstructions 
+    % Two FFT reconstructions
     x = x(:);
     cdf_right = one_shift(phi_cond, x, a_neg, 1, grid);   % accurate for x > 0
     cdf_left  = one_shift(phi_cond, x, a_pos, 0, grid);   % accurate for x < 0
 
-    % Glue at x = 0 (median for AB near eta ~ 0) 
+    % Glue at x = 0 (median for AB near eta ~ 0)
     cdf            = cdf_right;
     left_mask      = x < 0;
     cdf(left_mask) = cdf_left(left_mask);

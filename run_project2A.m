@@ -88,12 +88,15 @@ title(sprintf('AB calibration (paper Eq. 20): k = %.4f, \\eta = %.4f, rMSE = %.4
 
 %% 3b-3c: conditional CDF and MC simulation of the log-price increment T1 -> T2
 % T1 = 6m, T2 = 1y: closest available maturities idx 3 (5.52m) and idx 5 (11.47m).
+seed = 1234;
+rng(seed);  % for reproducibility
 iT1 = 3;  iT2 = 5;
 T1 = yf(iT1);  T2 = yf(iT2);
 sigma_T1 = sigma_t(iT1);  sigma_T2 = sigma_t(iT2);
 
 % 3b: conditional CDF via Lewis-FFT (Baviera-Manzoni 2026, eq. 13-15)
 x_grid = linspace(-40, 40, 300)';
+
 cdf    = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid);
 
 % 3c: simulate increments via inverse-CDF + exponential tail extrapolation

@@ -25,23 +25,21 @@ function [price, IC] = price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, ...
 %   price : MC estimator of B(0,T2) * E_0[(S(T2) - K*F(T1,T2))_+]
 %   IC    : 95% confidence interval [lo, hi]
 
-seed = 1;  % for reproducibility
-rng(seed);
-
-% --- marginal CDF (0 -> T1) for the T2-forward ----------------------------
-% Lemma 2 (Forward.pdf, Sec. 1.2): x_{T1}^{T2} = D(T1,T2) * x_{T1}^{T1}
-% where D = B(0,T1)/B(0,T2). Equivalently, x_{T1}^{T2} ~ AB(eta,k,sigma_T2,T1)
-% so we use sigma_T2 here to get Z_1 ~ x_{T1}^{T2} directly.
-% AB variance: Var(x_T) = sigma_T^2 * T * (1 + eta^2 * k).
-std_T1    = sigma_T2 * sqrt(T1) * sqrt(1 + eta^2 * kAB);
+% --- marginal CDF (0 -> T1) -----------------------------------------------
+% The AB model defines a single process {f_t} with time-varying vol sigma_s
+% (Baviera-Massaria 2026, Eq. 4). F(t,T) = F(0,T) + f_t for any T, so f_{T1}
+% has the calibrated marginal with sigma_T1 — no cross-maturity rescaling needed.
+% AB variance: Var(f_T) = sigma_T^2 * T * (1 + eta^2 * k).
+std_T1    = sigma_T1 * sqrt(T1) * sqrt(1 + eta^2 * kAB);
 x_grid_T1 = linspace(-8*std_T1, 8*std_T1, numel(x_grid))';
 
-cdf_1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T2, x_grid_T1);
+cdf_1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T1, x_grid_T1);
 Z_1   = sample_from_cdf(x_grid_T1, cdf_1, Nsim);
 
 % --- conditional CDF (T1 -> T2) -------------------------------------------
 ccdf  = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid);
 Z_2_1 = sample_from_cdf(x_grid, ccdf, Nsim);
+
 
 % --- reconstruct forward / spot via linear-forward relation ---------------
 f1_2 = forward + Z_1;            % F(T1, T2)
