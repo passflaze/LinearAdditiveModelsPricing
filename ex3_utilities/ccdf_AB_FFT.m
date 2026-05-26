@@ -1,4 +1,4 @@
-function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
+function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag)
     % Conditional CDF F_{T2|T1}(x) of the AB log-price increment between
     % reset dates T1 and T2, via Lewis-FFT.
     %
@@ -22,8 +22,14 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x)
     end
 
     % FFT grid 
+    % Operate on unnormalized dollar increments: widen the spatial grid
     M  = 16;
-    dz = 0.0025;
+    if flag == 1
+        dz = 0.05;
+    else
+        dz = 0.0025;
+    end
+
     N  = 2^M;
     dx = 2*pi / (N*dz);
     z1 = -dz * (N-1) / 2;

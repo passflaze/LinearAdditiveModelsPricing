@@ -33,11 +33,11 @@ function [price, IC] = price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, ...
 std_T1    = sigma_T1 * sqrt(T1) * sqrt(1 + eta^2 * kAB);
 x_grid_T1 = linspace(-8*std_T1, 8*std_T1, numel(x_grid))';
 
-cdf_1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T1, x_grid_T1);
+cdf_1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T1, x_grid_T1,0);
 Z_1   = sample_from_cdf(x_grid_T1, cdf_1, Nsim);
 
 % --- conditional CDF (T1 -> T2) -------------------------------------------
-ccdf  = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid);
+ccdf  = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid, 0);
 Z_2_1 = sample_from_cdf(x_grid, ccdf, Nsim);
 
 

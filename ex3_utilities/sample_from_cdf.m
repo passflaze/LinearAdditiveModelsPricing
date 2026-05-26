@@ -34,7 +34,7 @@ c_v  = c_v(keep);
 
 % rule-of-thumb check (Baviera-Manzoni 2026, Sec. 5.3)
 tail_err = max(c_v(1), 1 - c_v(end));
-if tail_err > 5*1e-4
+if tail_err > 1.5* 1e-4
     warning('sample_from_cdf:tails', ...
         'Tail mass = %.2e > 1e-4. Widen x_grid or refine CDF grid.', tail_err);
 end
