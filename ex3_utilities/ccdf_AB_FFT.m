@@ -22,12 +22,11 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag)
     end
 
     % FFT grid 
-    % Operate on unnormalized dollar increments: widen the spatial grid
     M  = 16;
     if flag == 1
-        dz = 0.05;
+        dz = 0.05;     % in pricing exotic option we operate on unnormalized dollar increments so we need to widen the spatial grid
     else
-        dz = 0.0025;
+        dz = 0.0025; 
     end
 
     N  = 2^M;

@@ -25,7 +25,7 @@ function call_price = lewis_FFT_AB(x_money, t1, t2, k, eta, sigma_t1, sigma_t2)
 x_money = x_money(:);
 
 % --- FFT grid -----------------------------------------------------------
-% Operate on UNNORMALIZED dollar increments (sigma ~ 10-20$), not normalized chi.
+% Operate on UNNORMALIZED dollar increments (sigma ~ 10-20$), not normalized chi differently from call_ab_FFT.
 % We need a large spatial domain to avoid truncation and a very fine dx to 
 % resolve the narrow CF peak and the near-pole of the integrand at u=0.
 M  = 16;
@@ -56,7 +56,7 @@ phi_Delta = @(u) phi_t2(u) ./ phi_t1(u);
 int = @(csi) phi_Delta(csi + 1i*a) ./ (1i*csi - a).^2;
 
 fj_raw = arrayfun(int, xk);
-fj_raw(~isfinite(fj_raw)) = 0; % Prevent NaNs from exploding the FFT at the tails
+fj_raw(~isfinite(fj_raw)) = 0; % Prevent NaNs from exploding the FFT at the tails due to 0/0 issues in CF
 fj    = fj_raw .* exp(-1i * z1 * dx .* j);
 f_hat = exp(a*zk) .* dx .* exp(-1i * x1 * zk) .* fft(fj);
 
