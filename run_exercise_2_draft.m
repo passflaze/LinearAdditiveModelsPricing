@@ -159,3 +159,61 @@ for i = 1:nT
     fprintf('%-12s  %10.4f  %10.4f\n', string(expiries(i),'yyyy-MM-dd'), ...
         sqrt(mean(r_MA_i.^2)), sqrt(mean(r_GL_i.^2)));
 end
+
+%% Check 4: AB cross-reference (paper ground truth)
+% AB ha parametri (k, eta) con range pubblicati nel paper 3 (Fig.2-3) per WTI
+% Covid -> calibrando AB sugli stessi dati pooled abbiamo una reference
+% indipendentemente auditable. Se la AB cade nel range del paper e fitta il
+% mercato, diventa il "ground truth" per validare MA e GL via overlay di G(chi).
+addpath('ex2/');   % calibrateAB, call_AB_FFT, I0
+
+% Pool market: broadcast norm_factor a M x N e flattening con maschera NaN
+norm_mat  = repmat(norm_factor(:), 1, size(moneyness_modified, 2));
+ok_mask   = isfinite(moneyness_modified) & isfinite(c_mkt_calibration);
+chi_pool  = moneyness_modified(ok_mask);
+cMkt_pool = c_mkt_calibration(ok_mask);
+norm_pool = norm_mat(ok_mask);
+
+% AB calibration sugli stessi pooled data del MA/GL
+[kAB, eta_AB, ~, rMSE_AB] = calibrateAB(chi_pool, cMkt_pool, norm_pool, sigma_ATM);
+
+% Range check vs paper Fig.2-3 (WTI Covid)
+in_k   = (kAB    >= 0.4) && (kAB    <= 1.2);
+in_eta = (eta_AB >= -0.3) && (eta_AB <= 0.3);
+fprintf('\n--- Check 4: AB cross-reference ---\n');
+fprintf('AB params:   k   = %.4f   (paper range: 0.4 .. 1.2)   in-range: %d\n', kAB,    in_k);
+fprintf('             eta = %+.4f  (paper range: -0.3 .. +0.3) in-range: %d\n', eta_AB, in_eta);
+
+% rMSE pooled per modello
+rMSE_MA_pool = sqrt(mean(res_MA(isfinite(res_MA)).^2));
+rMSE_GL_pool = sqrt(mean(res_GL(isfinite(res_GL)).^2));
+fprintf('rMSE [$]:    AB=%.4f   MA=%.4f   GL=%.4f\n', rMSE_AB, rMSE_MA_pool, rMSE_GL_pool);
+
+% Griglia densa: con B=sigma=t=1 le funzioni di prezzo restituiscono G(chi)
+chi_g = linspace(min(chi_pool), max(chi_pool), 300);
+G_AB  = call_AB_FFT(chi_g, kAB, eta_AB);
+G_MA  = price_MA([alpha_MA, beta_MA], 1, 1, 1, chi_g);
+G_GL  = price_GL(alpha_GL, beta_GL, M, dz, 1, 1, 1, chi_g);
+
+% Distanza inter-modello vs AB reference
+d_MA_AB = max(abs(G_MA(:) - G_AB(:)));
+d_GL_AB = max(abs(G_GL(:) - G_AB(:)));
+fprintf('max|G_MA - G_AB| = %.4e    max|G_GL - G_AB| = %.4e\n', d_MA_AB, d_GL_AB);
+fprintf('(<5e-3 -> i tre G(chi) sono di fatto sovrapposti)\n');
+
+% Overlay: mercato + tre modelli su G(chi)
+G_pool_norm = cMkt_pool ./ norm_pool;
+
+figure('Name','Check 4: market vs AB, MA, GL','Color','w');
+scatter(chi_pool, G_pool_norm, 14, [0.5 0.5 0.5], 'filled'); hold on
+plot(chi_g, G_AB, 'k-',  'LineWidth', 1.8)
+plot(chi_g, G_MA, 'r-',  'LineWidth', 1.5)
+plot(chi_g, G_GL, 'b--', 'LineWidth', 1.5)
+yline(1/sqrt(2*pi), '--', 'Bachelier ATM', 'Color', [0.3 0.3 0.3], ...
+      'LabelVerticalAlignment','bottom','FontSize',8);
+xline(0, ':', 'Color', [0.3 0.3 0.3])
+xlabel('\chi'); ylabel('G(\chi)'); grid on
+title(sprintf('rMSE [$]: AB=%.3f  MA=%.3f  GL=%.3f    (k=%.3f, \\eta=%+.3f)', ...
+              rMSE_AB, rMSE_MA_pool, rMSE_GL_pool, kAB, eta_AB));
+legend({'market','AB (reference)','MA','GL'}, 'Location','best');
+
