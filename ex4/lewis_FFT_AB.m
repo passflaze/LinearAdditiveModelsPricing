@@ -63,4 +63,9 @@ f_hat = exp(a*zk) .* dx .* exp(-1i * x1 * zk) .* fft(fj);
 call_price = interp1(zk, f_hat, x_money, 'spline');
 call_price = real(call_price / (2*pi));
 
+% No-arb lower bound: E[(Delta-x)+] >= max(0,-x)  (Jensen, E[Delta]=0).
+% Clips spline oscillations in the OTM tail; also makes Put via parity
+% (Ptilde = Ctilde + x) automatically respect its own bound max(0, x).
+call_price = max(call_price, max(0, -x_money));
+
 end
