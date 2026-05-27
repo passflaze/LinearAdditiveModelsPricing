@@ -87,8 +87,10 @@ function P = one_shift(phi_cond, x, a, Ra, g)
 % In code convention ( a = -ap ):
 %   P(x) = Ra - real(FFT_output / (2 pi)) * exp(a * x)
 % with Ra = 1 for a < 0 and Ra = 0 for a > 0.
-    int_kernel = @(csi) phi_cond(csi + 1i*a) ./ (1i*csi - a);
-    fk_raw = arrayfun(int_kernel, g.xk);
+    % vectorised CF call: phi_cond returns column N x 1; reshape to row for FFT
+    phi_vals = phi_cond(g.xk + 1i*a);
+    phi_vals = phi_vals(:).';
+    fk_raw = phi_vals ./ (1i*g.xk - a);
     fk_raw(~isfinite(fk_raw)) = 0;
     fk = fk_raw .* exp(-1i * g.z1 * g.dx .* g.j);
 

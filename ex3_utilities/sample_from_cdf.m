@@ -18,8 +18,9 @@ function Z = sample_from_cdf(x_grid, cdf, Nsim)
 x_grid = x_grid(:);
 cdf    = cdf(:);
 
-% restrict to monotone segment in [0, 1] 
-in_bounds = (cdf >= 0) & (cdf <= 1);
+% restrict to monotone segment STRICTLY in (0, 1): exact 0/1 boundaries
+% would make the exponential-tail decay rates log(Pb) and log(1-Pe) infinite.
+in_bounds = (cdf > 0) & (cdf < 1);
 idx_b = find(in_bounds, 1, 'first');
 idx_e = find(in_bounds, 1, 'last');
 

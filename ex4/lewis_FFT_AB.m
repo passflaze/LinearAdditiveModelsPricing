@@ -60,9 +60,10 @@ phi_t2    = charateristic_function_AB(t2, k, eta, sigma_t2);
 phi_Delta = @(u) phi_t2(u) ./ phi_t1(fwd_factor * u);
 
 % --- Lewis integrand (Eq.8, a < 0 so R_a = 0) ---------------------------
-int = @(csi) phi_Delta(csi + 1i*a) ./ (1i*csi - a).^2;
-
-fj_raw = arrayfun(int, xk);
+% vectorised CF call: phi_Delta returns column N x 1; reshape to row for FFT
+phi_vals = phi_Delta(xk + 1i*a);
+phi_vals = phi_vals(:).';
+fj_raw = phi_vals ./ (1i*xk - a).^2;
 n = sum(~isfinite(fj_raw));
 fj_raw(~isfinite(fj_raw)) = 0; % Prevent NaNs from exploding the FFT at the tails due to 0/0 issues in CF
 fj    = fj_raw .* exp(-1i * z1 * dx .* j);

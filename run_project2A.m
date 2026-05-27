@@ -98,10 +98,12 @@ T1 = yf(iT1);  T2 = yf(iT2);
 sigma_T1 = sigma_t(iT1);  sigma_T2 = sigma_t(iT2);
 
 % 3b: conditional CDF via Lewis-FFT (Baviera-Manzoni 2026, eq. 13-15)
-x_grid = linspace(-40,40,300)';
+% Lemma 2 rescaling: must match what price_AB_MC uses internally so that the
+% FFT-reference price and the MC estimate target the same theoretical law.
+x_grid     = linspace(-40,40,300)';
+fwd_factor = discount_factor(iT1) / discount_factor(iT2);
 
-
-cdf    = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid, 0);
+cdf    = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid, 0, fwd_factor);
 
 % 3c: simulate increments via inverse-CDF + exponential tail extrapolation
 Nsim = 1e5;
