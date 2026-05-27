@@ -48,6 +48,37 @@ sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries);
 [moneyness_modified, c_mkt_calibration_normed, norm_factor] = moneyness_generator(forward,strikes,calls,puts,sigma_ATM,yf,discount_factor);
 c_mkt_calibration = c_mkt_calibration_normed.*norm_factor;
 
+%% quick diagnostic plot: normalized smile per maturity
+% G(chi) = C / (B * sigma_ATM * sqrt(t))  vs chi = (K-F)/(sigma_ATM*sqrt(t))
+% A clean U-shape with continuity across chi=0 means the OTM-call (chi>0)
+% and PCP-derived OTM-put (chi<0) sides splice consistently.
+figure('Name','Normalized smile per maturity','Color','w');
+tlo = tiledlayout('flow','TileSpacing','compact','Padding','compact');
+title(tlo, 'Normalized market prices  G(\chi) = C / (B \sigma^{ATM} \sqrt{t})');
+for i = 1:nT
+    nexttile;
+    chi = moneyness_modified(i,:);
+    g   = c_mkt_calibration_normed(i,:);
+    ok  = ~isnan(chi) & ~isnan(g);
+    chi = chi(ok); g = g(ok);
+    [chi, idx] = sort(chi); g = g(idx);
+
+    % colour-code call vs put-derived side
+    isCall = chi >= 0;
+    plot(chi(~isCall), g(~isCall), 'o-', 'Color', [0.85 0.33 0.10], ...
+        'MarkerFaceColor', [0.85 0.33 0.10], 'MarkerSize', 4, 'LineWidth', 1); hold on;
+    plot(chi( isCall), g( isCall), 'o-', 'Color', [0.00 0.45 0.74], ...
+        'MarkerFaceColor', [0.00 0.45 0.74], 'MarkerSize', 4, 'LineWidth', 1);
+    yline(1/sqrt(2*pi), '--', 'Bachelier ATM', 'Color', [0.4 0.4 0.4], ...
+        'LabelVerticalAlignment', 'bottom', 'FontSize', 7);
+    xline(0, ':', 'Color', [0.4 0.4 0.4]);
+    grid on;
+    xlabel('\chi');
+    ylabel('G(\chi)');
+    title(string(expiries(i),'yyyy-MM-dd'), 'FontWeight','normal');
+end
+legend({'OTM put (PCP) - \chi<0', 'OTM call - \chi>0'}, ...
+    'Orientation','horizontal', 'Location','southoutside');
 
 
 %% MA calibration

@@ -1,5 +1,5 @@
 function [price, IC] = price_chooser_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, ...
-                                           Nsim, forward, B_0_t2, N_grid)
+                                           Nsim, forward, B_0_t1, B_0_t2, N_grid)
 % PRICE_CHOOSER_AB_MC  Monte Carlo price of a simple chooser under Additive Bachelier.
 %
 % At T1 the holder picks Call or Put on F with strike K = F(t0,T2) and maturity T2.
@@ -15,6 +15,7 @@ function [price, IC] = price_chooser_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2,
 %   sigma_T2   : AB scale at T2, = sigma_ATM(T2)/I_0
 %   Nsim       : number of MC paths
 %   forward    : F(t0, T2)                       (also used as strike K)
+%   B_0_t1     : discount factor B(t0, T1)       (Lemma 2 forward rescaling)
 %   B_0_t2     : discount factor B(t0, T2)
 %   N_grid     : number of points for the f_{T1} marginal CDF grid
 %
@@ -22,14 +23,16 @@ function [price, IC] = price_chooser_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2,
 %   price : MC estimate of the chooser price at t0
 %   IC    : 95% confidence interval [lower, upper]
 
-% Simulate F(T1,T2) via marginal CDF of f_{T1} (T1==0 branch of ccdf_AB_FFT).
-% Grid scaled to 8 stdev of f_{T1}  (Lemma B.1: Var(z) = 1 + eta^2 * k).
+% Simulate F(T1,T2) via marginal CDF of f_{T1,T1} (T1==0 branch of ccdf_AB_FFT).
+% Grid scaled to 8 stdev of f_{T1,T1}  (Lemma B.1: Var(z) = 1 + eta^2 * k).
+% Lemma 2 of Forward.pdf: f_{T1,T2} = (B(0,T1)/B(0,T2)) * f_{T1,T1}.
 std_T1    = sigma_T1 * sqrt(T1) * sqrt(1 + eta^2 * kAB);
 x_grid_T1 = linspace(-8*std_T1, 8*std_T1, N_grid)';
 
-cdf_fT1 = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T1, x_grid_T1, 1);
-f_T1    = sample_from_cdf(x_grid_T1, cdf_fT1, Nsim);
-F_T1_T2 = forward + f_T1;                              % Nsim x 1
+cdf_fT1    = ccdf_AB_FFT(eta, kAB, 0, T1, 0, sigma_T1, x_grid_T1, 1);
+f_T1       = sample_from_cdf(x_grid_T1, cdf_fT1, Nsim);
+fwd_factor = B_0_t1 / B_0_t2;                          % = exp(int_{T1}^{T2} r_s ds)
+F_T1_T2    = forward + fwd_factor * f_T1;              % Nsim x 1
 
 % Inner Call (undiscounted) via Lewis on phi_{T2}/phi_{T1}
 K       = forward;                                     % ATM-forward strike

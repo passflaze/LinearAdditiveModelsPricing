@@ -109,8 +109,10 @@ Z    = sample_from_cdf(x_grid, cdf, Nsim);
 plot_mc_check(Z, x_grid, cdf, T1, T2);
 
 % 3d: forward-start option pricing  K=1 -> payoff = max(Z_{2|1}, 0)
+% Pass B(0,T1) and B(0,T2): Lemma 2 of Forward.pdf rescales f_{T1,T1} -> f_{T1,T2}.
 [price, IC] = price_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, Nsim, ...
-                           forward(iT2), discount_factor(iT2), x_grid, 1);
+                           forward(iT2), discount_factor(iT1), ...
+                           discount_factor(iT2), x_grid, 1);
 
 % FFT reference: E[max(Z_{2|1},0)] = integral_0^inf (1-F_cond(x)) dx
 % x_grid may not contain x=0 exactly, so we interpolate F(0) to avoid
@@ -154,7 +156,8 @@ fprintf('Sanity (K1=0)  : MC %.4f  vs  FFT Call_T2_ATM %.4f   (rel err %.2e)\n',
 % Choice at T1 between Call/Put with K = F(t0,T2), maturity T2.
 rng(seed);
 [ch_price, ch_IC] = price_chooser_AB_MC(T1, T2, kAB, eta, sigma_T1, sigma_T2, Nsim, ...
-                                        forward(iT2), discount_factor(iT2), N_grid);
+                                        forward(iT2), discount_factor(iT1), ...
+                                        discount_factor(iT2), N_grid);
 
 % Sanity: max(C,P) = C + B(T1,T2)*(K-F(T1,T2))+ and martingality of f_t give
 %   Chooser = B(0,T2) * G(0) * [sigma_ATM(T2)*sqrt(T2) + sigma_ATM(T1)*sqrt(T1)]

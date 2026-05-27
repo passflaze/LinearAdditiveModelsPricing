@@ -47,21 +47,32 @@ function [moneyness_modified, c_mkt_calibration_normed, norm_factor] = moneyness
         curr_calls = calls(i, :);
         curr_puts  = puts(i, :);
         
-        % 2. Generate the structural filter mask based on the user's choice
+        % 2. Split filter into call-side and put-side masks.
+        % For 'OTM': use OTM calls (K>F) AND OTM puts (K<F) via PCP -- both
+        % sides of the smile contribute. Previously the same mask was applied
+        % to puts as well, so the K<F branch of the surface was never seen by
+        % the calibrator.
         switch upper(filter_type)
             case 'OTM'
-                mask_filter = strikes > forward(i);
+                call_filter = strikes > forward(i);
+                put_filter  = strikes < forward(i);
             case 'ITM'
-                mask_filter = strikes < forward(i);
+                call_filter = strikes < forward(i);
+                put_filter  = strikes > forward(i);
             case 'ALL'
-                mask_filter = true(1, N);
+                call_filter = true(1, N);
+                put_filter  = true(1, N);
             otherwise
                 error('MoneynessGenerator:InvalidFilter', 'filter_type must be ''OTM'', ''ITM'', or ''ALL''.');
         end
-        
-        % 3. Create logical mask arrays (Data availability AND Structural Filter)
-        mask_has_call = ~isnan(curr_calls) & mask_filter;
-        mask_put_only = isnan(curr_calls) & ~isnan(curr_puts) & mask_filter; 
+
+        % 3. Data-availability masks. For OTM/ITM the two filters are
+        % disjoint by construction (K>F vs K<F); the ~mask_has_call guard
+        % keeps 'ALL' safe by preferring direct call quotes over PCP.
+        % Penny filter: drop quotes < 0.1 (unreliable / stale).
+        penny_thr = 0.1;
+        mask_has_call = ~isnan(curr_calls) & (curr_calls >= penny_thr) & call_filter;
+        mask_put_only = ~isnan(curr_puts)  & (curr_puts  >= penny_thr) & put_filter & ~mask_has_call;
         
         % 4. Pre-compute the modified moneyness vector for the entire row
         curr_moneyness = (strikes - forward(i)) / (sigma_ATM(i) * sqrt(yf(i)));

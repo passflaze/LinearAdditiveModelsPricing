@@ -56,7 +56,7 @@ phi_Delta = @(u) phi_t2(u) ./ phi_t1(u);
 int = @(csi) phi_Delta(csi + 1i*a) ./ (1i*csi - a).^2;
 
 fj_raw = arrayfun(int, xk);
-n = sum(~isfinite(fj_raw))
+n = sum(~isfinite(fj_raw));
 fj_raw(~isfinite(fj_raw)) = 0; % Prevent NaNs from exploding the FFT at the tails due to 0/0 issues in CF
 fj    = fj_raw .* exp(-1i * z1 * dx .* j);
 f_hat = exp(a*zk) .* dx .* exp(-1i * x1 * zk) .* fft(fj);
