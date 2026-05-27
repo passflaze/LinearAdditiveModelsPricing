@@ -25,7 +25,9 @@ cMkt     = cMkt(:);
 normFact = normFact(:);
 
 % Model price in $ via Eq. (20):  C^mod = (B * sigma_ATM * sqrt(t)) * G(chi; eta, k)
-cMod = @(k_p, eta_p) normFact .* call_AB_FFT(chi, k_p, eta_p);
+% I_0 is computed ONCE per (k, eta) trial and reused inside call_AB_FFT
+% (otherwise call_AB_FFT recomputes it via its own 2^14 FFT, doubling work).
+cMod = @(k_p, eta_p) normFact .* call_AB_FFT(chi, k_p, eta_p, I0(0, k_p, eta_p));
 
 % L^2 distance on full $ prices. Wrap with safeObj (local function) to penalize
 % non-finite outputs so fmincon steps back into the feasible region instead of crashing.

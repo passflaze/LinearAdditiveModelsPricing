@@ -70,6 +70,8 @@ normFact_all = vertcat(normFact_cell{:});
 %% calibrate Additive Bachelier (global: eta and k constant across maturities)
 % paper Eq. (20): SSE on dollar prices.
 [kAB, eta, sigma_t, rMSE] = calibrateAB(chi_all, cMkt_all, normFact_all, sigma_atm);
+fprintf('Calibrated AB parameters: k = %.4f, eta = %.4f, rMSE = %.4f $\n', kAB, eta, rMSE);      
+
 
 %% verify the fit visually in normalized space (cleaner across maturities)
 % G_model = G(chi; eta, k) is the normalized model price (call_AB_FFT).
@@ -160,10 +162,13 @@ rng(seed);
                                         discount_factor(iT2), N_grid);
 
 % Sanity: max(C,P) = C + B(T1,T2)*(K-F(T1,T2))+ and martingality of f_t give
-%   Chooser = B(0,T2) * G(0) * [sigma_ATM(T2)*sqrt(T2) + sigma_ATM(T1)*sqrt(T1)]
+%   Chooser = B(0,T2) * G(0) * [sigma_ATM(T2)*sqrt(T2) + fwd_factor*sigma_ATM(T1)*sqrt(T1)]
+% with fwd_factor = B(0,T1)/B(0,T2) from Lemma 2 (Forward.pdf): the T1 leg
+% sees f_{T1,T2} = fwd_factor * f_{T1,T1}, so its ATM put is rescaled too.
 % (smile term drops at ATM-forward both at T1 and T2).
+fwd_factor_check = discount_factor(iT1) / discount_factor(iT2);
 ch_analytic = discount_factor(iT2) * G0 * ...
-              ( sigma_atm(iT2)*sqrt(T2) + sigma_atm(iT1)*sqrt(T1) );
+              ( sigma_atm(iT2)*sqrt(T2) + fwd_factor_check * sigma_atm(iT1)*sqrt(T1) );
 
 fprintf('\n--- 4b Chooser (K=F(t0,T2)=%.4f, T1=%.2fy, T2=%.2fy) ---\n', ...
         forward(iT2), T1, T2);

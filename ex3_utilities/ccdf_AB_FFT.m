@@ -1,4 +1,4 @@
-function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag)
+function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag, fwd_factor)
     % Conditional CDF F_{T2|T1}(x) of the AB log-price increment between
     % reset dates T1 and T2, via Lewis-FFT.
     %
@@ -12,13 +12,22 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag)
     %   cdf = ccdf_AB_FFT(eta, kAB, yf(iT1), yf(iT2), sigma_t(iT1), sigma_t(iT2), x);
     %
     % x: column vector of log-price increment points where to evaluate the CDF.
+    %
+    % fwd_factor : (optional, default 1) Lemma 2 rescaling (Forward.pdf).
+    %   Under Lemma 2 strict, f_{T1,T2} = fwd_factor * f_{T1,T1} with
+    %   fwd_factor = B(0,T1)/B(0,T2). The increment W = f_{T2,T2} - f_{T1,T2}
+    %   of the AB-T2 process has CF phi_T2(u) / phi_T1(fwd_factor * u).
+
+    if nargin < 9 || isempty(fwd_factor)
+        fwd_factor = 1;
+    end
 
     phi_T2   = charateristic_function_AB(T2, k, eta, sigma_T2);
     if T1 == 0
         phi_cond = phi_T2;
     else
         phi_T1   = charateristic_function_AB(T1, k, eta, sigma_T1);
-        phi_cond = @(u) phi_T2(u) ./ phi_T1(u);
+        phi_cond = @(u) phi_T2(u) ./ phi_T1(fwd_factor * u);
     end
 
     % FFT grid 
@@ -39,15 +48,25 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag)
 
     grid = struct('zk', zk, 'xk', xk, 'x1', x1, 'z1', z1, 'dx', dx, 'j', j);
 
-    % Analyticity strip of the conditional CF 
-    % Strip (in u-space): a in ( -p+/(sigma_T2*sqrt(T2)),  p-/(sigma_T2*sqrt(T2)) )
-    % Use the tighter scale (T2) since the T1 strip is wider.
+    % Analyticity strip of the conditional CF
+    % phi_T2 strip in u: |Im u| < p+/(sigma_T2*sqrt(T2)).
+    % phi_T1(fwd_factor*u) strip in u: |Im u| < p+/(fwd_factor*sigma_T1*sqrt(T1)).
+    % Under Lemma 2, take the binding (tightest) side.
     p_plus  = eta + sqrt(eta^2 + 1/k);
     p_minus = -eta + sqrt(eta^2 + 1/k);
     sT2     = sigma_T2 * sqrt(T2);
 
-    a_neg = -0.49 * p_plus  / sT2;   % left edge of strip:  good for RIGHT tail, Ra = 1
-    a_pos = +0.49 * p_minus / sT2;   % right edge of strip: good for LEFT tail,  Ra = 0
+    if T1 == 0
+        strip_plus  = p_plus  / sT2;
+        strip_minus = p_minus / sT2;
+    else
+        sT1_eff     = fwd_factor * sigma_T1 * sqrt(T1);
+        strip_plus  = min(p_plus  / sT2, p_plus  / sT1_eff);
+        strip_minus = min(p_minus / sT2, p_minus / sT1_eff);
+    end
+
+    a_neg = -0.49 * strip_plus;    % left edge of strip:  good for RIGHT tail, Ra = 1
+    a_pos = +0.49 * strip_minus;   % right edge of strip: good for LEFT tail,  Ra = 0
 
     % Two FFT reconstructions
     x = x(:);

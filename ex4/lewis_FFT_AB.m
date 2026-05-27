@@ -1,26 +1,29 @@
-function call_price = lewis_FFT_AB(x_money, t1, t2, k, eta, sigma_t1, sigma_t2)
+function call_price = lewis_FFT_AB(x_money, t1, t2, k, eta, sigma_t1, sigma_t2, fwd_factor)
 % LEWIS_FFT_AB  Bachelier-Lewis price of E[(Delta - x)^+] with
-% Delta := f_{t2} - f_{t1} under the Additive Bachelier model (alpha = 1/2).
+% Delta := f_{t2,t2} - f_{t1,t2} (AB-t2 increment) under Additive Bachelier
+% (alpha = 1/2), consistent with Lemma 2 of Forward.pdf.
 %
-% Why a dedicated pricer (and not call_AB_FFT): AB is additive but NOT Levy
-% (Baviera-Massaria 2026, footnote 1 p.2), so the increment Delta is NOT
-% AB-distributed. Its CF is the ratio
-%       phi_Delta(u) = phi_{t2}(u) / phi_{t1}(u)
-% with phi_{t_j} as in Eq.(4). The Bachelier-Lewis formula (Eq.8) is
-% applied directly to phi_Delta on a contour 'a' inside the analyticity
-% strip of phi_{t2} -- the narrower of the two, since sigma_t*sqrt(t)
-% is increasing (Eq.31 + model hypothesis on sigma_t^2 * t).
+% Under Lemma 2 strict: f_{t1,t2} = fwd_factor * f_{t1,t1} with
+% fwd_factor = B(0,t1)/B(0,t2). The CF of the increment of the AB-t2 process
+% from s=t1 to s=t2 is
+%       phi_Delta(u) = phi_{t2}(u) / phi_{t1}(fwd_factor * u)
+% with phi_{t_j} as in Eq.(4) of Baviera-Massaria 2026.
 %
 % Inputs (column vectors / scalars)
-%   x_money  : N x 1 moneyness K2 - F(t1,t2) in $
-%   t1, t2   : maturities, with t1 < t2
-%   k, eta   : AB parameters (constant in time, Prop.2.1)
-%   sigma_t1 : scale at t1, = sigma_ATM(t1)/I_0   (Eq.15)
-%   sigma_t2 : scale at t2, = sigma_ATM(t2)/I_0
+%   x_money    : N x 1 moneyness K2 - F(t1,t2) in $
+%   t1, t2     : maturities, with t1 < t2
+%   k, eta     : AB parameters (constant in time, Prop.2.1)
+%   sigma_t1   : scale at t1, = sigma_ATM(t1)/I_0   (Eq.15)
+%   sigma_t2   : scale at t2, = sigma_ATM(t2)/I_0
+%   fwd_factor : (optional, default 1) Lemma 2 rescaling B(0,t1)/B(0,t2)
 %
 % Output
 %   call_price : N x 1 undiscounted price E[(Delta - x_money)^+] in $.
 %                Multiply by D(t1,t2) externally to get the inner Call at t1.
+
+if nargin < 8 || isempty(fwd_factor)
+    fwd_factor = 1;
+end
 
 x_money = x_money(:);
 
@@ -41,16 +44,20 @@ zk = z1 + dz * j;          % output grid (moneyness, $)
 xk = x1 + dx * j;          % Fourier integration grid
 
 % --- Lewis contour 'a' inside the (-p+, p-) strip of phi_Delta ----------
-% phi_{t_j} is analytic in (-p+/(sigma_{t_j}*sqrt(t_j)), p-/(sigma_{t_j}*sqrt(t_j))),
-% Eq.31. The intersection is dominated by t2 (narrower).
-p_plus   = eta + sqrt(eta^2 + 1/k);
-strip_t2 = p_plus / (sigma_t2 * sqrt(t2));
-a        = max(-0.5, -0.45 * strip_t2);
+% phi_t2(u) strip in u:                |Im u| < p+/(sigma_t2*sqrt(t2)).
+% phi_t1(fwd_factor*u) strip in u:     |Im u| < p+/(fwd_factor*sigma_t1*sqrt(t1)).
+% Take the binding (tightest) side under Lemma 2.
+p_plus    = eta + sqrt(eta^2 + 1/k);
+strip_t2  = p_plus / (sigma_t2 * sqrt(t2));
+strip_t1e = p_plus / (fwd_factor * sigma_t1 * sqrt(t1));
+strip     = min(strip_t2, strip_t1e);
+a         = max(-0.5, -0.45 * strip);
 
 % --- Ratio characteristic function for the increment Delta --------------
+% Lemma 2: f_{t1,t2} = fwd_factor * f_{t1,t1} -> CF rescaled in the t1 leg.
 phi_t1    = charateristic_function_AB(t1, k, eta, sigma_t1);
 phi_t2    = charateristic_function_AB(t2, k, eta, sigma_t2);
-phi_Delta = @(u) phi_t2(u) ./ phi_t1(u);
+phi_Delta = @(u) phi_t2(u) ./ phi_t1(fwd_factor * u);
 
 % --- Lewis integrand (Eq.8, a < 0 so R_a = 0) ---------------------------
 int = @(csi) phi_Delta(csi + 1i*a) ./ (1i*csi - a).^2;

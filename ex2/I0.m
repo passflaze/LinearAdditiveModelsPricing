@@ -22,9 +22,10 @@ a = max(-0.5, -0.45 * p_plus);
 
 phi=charateristic_function_AB(1,k,eta,1);
 
-int=@(csi) phi(csi+1i*a)./(1i*csi-a).^2;
-
-fj= arrayfun(int,xk) .* exp(-1i * z1 * dx .*j);
+% vectorised CF call: phi(...) returns column N x 1; reshape to row for FFT
+phi_vals = phi(xk + 1i*a);
+phi_vals = phi_vals(:).';
+fj = phi_vals ./ (1i*xk - a).^2 .* exp(-1i * z1 * dx .* j);
 
 f_hat= exp(a*zk) .* dx .* exp(-1i * x1 * zk) .* fft(fj);
 

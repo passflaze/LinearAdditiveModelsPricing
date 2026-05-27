@@ -35,12 +35,12 @@ f_T1       = sample_from_cdf(x_grid_T1, cdf_fT1, Nsim);
 fwd_factor = B_0_t1 / B_0_t2;                          % = exp(int_{T1}^{T2} r_s ds)
 F_T1_T2    = forward + fwd_factor * f_T1;              % Nsim x 1
 
-%  2) Inner Call at T1 via Lewis-FFT on phi_{T2}/phi_{T1}
-% lewis_FFT_AB returns the UNDISCOUNTED conditional expectation;
+%  2) Inner Call at T1 via Lewis-FFT on phi_{T2}/phi_{T1}(fwd_factor*.)
+% lewis_FFT_AB returns the UNDISCOUNTED conditional expectation under Lemma 2;
 % B(T1,T2) brings it back to a T1-price (deterministic rates).
 K2      = forward;
 x_money = K2 - F_T1_T2;                                % Nsim x 1
-E_inner = lewis_FFT_AB(x_money, T1, T2, kAB, eta, sigma_T1, sigma_T2);
+E_inner = lewis_FFT_AB(x_money, T1, T2, kAB, eta, sigma_T1, sigma_T2, fwd_factor);
 B_T1_T2 = B_0_t2 / B_0_t1;
 C_T1    = B_T1_T2 * E_inner;                           % Nsim x 1
 

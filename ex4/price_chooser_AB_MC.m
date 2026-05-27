@@ -34,10 +34,10 @@ f_T1       = sample_from_cdf(x_grid_T1, cdf_fT1, Nsim);
 fwd_factor = B_0_t1 / B_0_t2;                          % = exp(int_{T1}^{T2} r_s ds)
 F_T1_T2    = forward + fwd_factor * f_T1;              % Nsim x 1
 
-% Inner Call (undiscounted) via Lewis on phi_{T2}/phi_{T1}
+% Inner Call (undiscounted) via Lewis on phi_{T2}/phi_{T1}(fwd_factor*.)
 K       = forward;                                     % ATM-forward strike
 x_money = K - F_T1_T2;                                 % Nsim x 1
-E_call  = lewis_FFT_AB(x_money, T1, T2, kAB, eta, sigma_T1, sigma_T2);
+E_call  = lewis_FFT_AB(x_money, T1, T2, kAB, eta, sigma_T1, sigma_T2, fwd_factor);
 
 % Inner Put (undiscounted) via put-call parity
 E_put   = E_call + x_money;
