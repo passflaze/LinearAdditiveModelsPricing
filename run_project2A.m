@@ -93,20 +93,30 @@ title(sprintf('AB calibration (paper Eq. 20): k = %.4f, \\eta = %.4f, rMSE = %.4
 % T1 = 6m, T2 = 1y: closest available maturities idx 3 (5.52m) and idx 5 (11.47m).
 seed = 1234;
 rng(seed);  % for reproducibility
-iT1 = 3;  iT2 = 5;
+iT1 = 2;  iT2 = 4;
 T1 = yf(iT1);  T2 = yf(iT2);
 sigma_T1 = sigma_t(iT1);  sigma_T2 = sigma_t(iT2);
 
 % 3b: conditional CDF via Lewis-FFT (Baviera-Manzoni 2026, eq. 13-15)
 % Lemma 2 rescaling: must match what price_AB_MC uses internally so that the
 % FFT-reference price and the MC estimate target the same theoretical law.
-x_grid     = linspace(-40,40,300)';
 fwd_factor = discount_factor(iT1) / discount_factor(iT2);
+
+% Grid scaled to the increment std (not hardcoded): with exponential AB tails
+% a fixed +/-40$ window is only ~7-8 sigma and leaves ~5e-4 mass in the tails,
+% tripping the tail-mass check in sample_from_cdf. From the AB CF (Eq. 4):
+%   Var(W) = (1 + k*eta^2) * (sigma_T2^2*T2 - fwd_factor^2*sigma_T1^2*T1).
+% 10 sigma (~+/-106$ here) pushes each tail below 1e-4 and stays well inside
+% ccdf_AB_FFT's spatial range (+/-1638$, Lewis recipe) so interp1 never
+% extrapolates -- the extrapolation was the source of the ~10% right-tail bias.
+std_W  = sqrt( (1 + kAB*eta^2) * ...
+               (sigma_T2^2*T2 - fwd_factor^2*sigma_T1^2*T1) );
+x_grid = linspace(-10*std_W, 10*std_W, 2000)';
 
 cdf    = ccdf_AB_FFT(eta, kAB, T1, T2, sigma_T1, sigma_T2, x_grid, 0, fwd_factor);
 
 % 3c: simulate increments via inverse-CDF + exponential tail extrapolation
-Nsim = 1e5;
+Nsim = 1e6;
 Z    = sample_from_cdf(x_grid, cdf, Nsim);
 
 % visual check: MC histogram/CDF vs FFT theoretical
@@ -118,7 +128,7 @@ plot_mc_check(Z, x_grid, cdf, T1, T2);
                            forward(iT2), discount_factor(iT1), ...
                            discount_factor(iT2), x_grid, 1);
 
-% FFT reference: E[max(Z_{2|1},0)] = integral_0^inf (1-F_cond(x)) dx
+% FFT reference (CDF route): E[max(Z_{2|1},0)] = integral_0^inf (1-F_cond(x)) dx
 % x_grid may not contain x=0 exactly, so we interpolate F(0) to avoid
 % truncating the integral over [0, first positive grid point].
 F0       = interp1(x_grid, cdf, 0, 'spline');
@@ -126,14 +136,21 @@ mask_pos = x_grid > 0;
 price_fft = discount_factor(iT2) * trapz([0; x_grid(mask_pos)], ...
                                           1 - [F0; cdf(mask_pos)]);
 
+% Independent reference (Lewis route): E[max(W,0)] = E[(W - 0)^+] is exactly
+% lewis_FFT_AB at moneyness 0. This is the SAME engine validated by the CoC /
+% chooser sanity checks (~1e-4), so it is the ground truth here and does not
+% rely on the CDF reconstruction / gluing that the CDF route depends on.
+price_lewis = discount_factor(iT2) * ...
+              lewis_FFT_AB(0, T1, T2, kAB, eta, sigma_T1, sigma_T2, fwd_factor);
+
 fprintf('--- Forward-start option (K=1, T1=%.2fy, T2=%.2fy) ---\n', T1, T2);
-fprintf('FFT reference : %.4f\n', price_fft);
-fprintf('MC estimate   : %.4f  95%% CI [%.4f, %.4f]\n', price, IC(1), IC(2));
+fprintf('Lewis reference: %.4f   (ground truth)\n', price_lewis);
+fprintf('FFT (CDF route): %.4f\n', price_fft);
+fprintf('MC estimate    : %.4f  95%% CI [%.4f, %.4f]\n', price, IC(1), IC(2));
 
 %% 4a Call-on-Call (CoC) via Lewis-FFT + MC
 % Inner strike K2 = F(t0,T2); CoC payoff at T1 = max( C(T1; K2, T2) - K1, 0 ).
 K1     = 1;       % outer strike (placeholder, set per project spec)
-Nsim   = 1e6;
 N_grid = 300;     % points for the f_{T1} marginal CDF inside the pricer
 
 rng(seed);

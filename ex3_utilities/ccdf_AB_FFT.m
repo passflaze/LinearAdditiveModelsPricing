@@ -30,13 +30,18 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag, fwd_facto
         phi_cond = @(u) phi_T2(u) ./ phi_T1(fwd_factor * u);
     end
 
-    % FFT grid 
+    % FFT grid (single wide "Lewis recipe", flag kept only for signature compat).
+    % For fixed N the spatial range and Fourier step are LOCKED:
+    %   spatial range = N*dz ,   dx = 2*pi/(N*dz) = 2*pi/range .
+    % The conditional increment W is in dollars (sigma_W ~ 10$), so an
+    % evaluation grid at +/-10 sigma reaches ~+/-106$. The old flag=0 grid
+    % (dz=0.0025) gave a spatial range of only +/-82$: interp1 then EXTRAPOLATED
+    % the right tail (biasing E[(W)+] ~10% low vs the Lewis reference) and its
+    % dx=0.038 under-resolved the integrand near-pole at u=0 (width ~|a|~0.03).
+    % dz=0.05 -> range +/-1638$ (covers any dollar grid) and dx~0.0019 (resolves
+    % the peak); identical to the validated lewis_FFT_AB grid.
     M  = 16;
-    if flag == 1
-        dz = 0.05;     % in pricing exotic option we operate on unnormalized dollar increments so we need to widen the spatial grid
-    else
-        dz = 0.0025; 
-    end
+    dz = 0.05;
 
     N  = 2^M;
     dx = 2*pi / (N*dz);
@@ -73,10 +78,23 @@ function cdf = ccdf_AB_FFT(eta, k, T1, T2, sigma_T1, sigma_T2, x,flag, fwd_facto
     cdf_right = one_shift(phi_cond, x, a_neg, 1, grid);   % accurate for x > 0
     cdf_left  = one_shift(phi_cond, x, a_pos, 0, grid);   % accurate for x < 0
 
-    % Glue at x = 0 (median for AB near eta ~ 0)
-    cdf            = cdf_right;
-    left_mask      = x < 0;
-    cdf(left_mask) = cdf_left(left_mask);
+    % Glue with a SMOOTH blend, not a hard switch at x = 0.
+    % A brusque switch leaves a downward step at the median: the raw CDF is no
+    % longer monotone, so trapz(1-cdf) (FFT reference) and the cummax-cleaned
+    % CDF used by sample_from_cdf integrate different functions -> the MC
+    % forward-start price drifts ~10% above the FFT reference.
+    % Both reconstructions are accurate everywhere except their own far tail,
+    % so a wide tanh blend (scale ~ a fraction of the x-range) suppresses each
+    % side's oscillation by averaging where both are good, and recovers the
+    % accurate tail far from 0 (w->1 right, w->0 left). The result is C^1 and
+    % monotone, so cummax in sample_from_cdf becomes a no-op.
+    scale = (max(x) - min(x)) / 20;          % gentle transition (~1 std)
+    w     = 0.5 * (1 + tanh(x / scale));     % 0 for x<<0, 1 for x>>0
+    cdf   = (1 - w) .* cdf_left + w .* cdf_right;
+
+    % numerical hygiene: clip to [0,1] and enforce monotonicity
+    cdf = min(max(cdf, 0), 1);
+    cdf = cummax(cdf);
 
 end
 

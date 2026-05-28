@@ -40,9 +40,14 @@ if tail_err > 1.5* 1e-4
         'Tail mass = %.2e > 1e-4. Widen x_grid or refine CDF grid.', tail_err);
 end
 
-% Step 3 + 4: sample via inverse spline 
+% Step 3 + 4: sample via inverse interpolation.
+% PCHIP (shape-preserving), NOT 'spline': the inverse CDF U->x is very steep
+% in the tails and a non-monotone cubic spline overshoots there, injecting
+% spurious extreme samples. In a bounded payoff this is damped, but in the
+% forward-start max(W,0) it biases E[(W)+] high (MC > FFT reference). PCHIP is
+% monotone by construction and removes the overshoot.
 U = rand(Nsim, 1);
-Z = interp1(c_v, x_v, U, 'spline');
+Z = interp1(c_v, x_v, U, 'pchip');
 
 % Exponential tail extrapolation for U outside [c_v(1), c_v(end)] --
 % Left tail:  F(x) = c_v(1) * exp(lam_m * (x - xb))  for x <= xb
