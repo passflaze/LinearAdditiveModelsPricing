@@ -1,9 +1,11 @@
-% data loading
+% run_ex4_GL.m
+% Esercizio 4: CoC, PoP, Chooser sotto modello Generalized Logistic (GL).
+
 clear, clc
 addpath("Utilities/");
 addpath("Functions/");
 addpath("ex3_GL/");
-addpath("ex4_GL/"); 
+addpath("ex4_GL/");
 
 callpath   = "Data/datacalls";
 putpath    = "Data/dataputs";
@@ -12,90 +14,94 @@ valueDate  = datetime(2020,06,02);
 
 [strikes, calls, puts, expiries] = readData(callpath, putpath, valueDate, expiryFile);
 
-% Bootstrap: discount factor e forward per ogni maturity
+%% Bootstrap: discount factor, forward, sigma_ATM per ogni maturity
 nT = numel(expiries);
 discount_factor = zeros(nT,1);
 forward         = zeros(nT,1);
 R2              = zeros(nT,1);
+call_atm        = zeros(nT,1);
 for k = 1:nT
     [discount_factor(k), forward(k), R2(k)] = bootstrap(puts(k,:), calls(k,:), strikes);
+    call_atm(k) = callATM(calls(k,:), puts(k,:), strikes, forward(k), discount_factor(k));
 end
 
+act_365   = 3;
+yf        = yearfrac(valueDate, expiries, act_365);
+sigma_atm = sigmaATM(call_atm, discount_factor, yf, expiries);
 
-%% PRICE CoC - GL model
-
+%% Parametri GL (da calibrazione esercizio 2) e scala sigma_t = sigma_ATM/I_0
 alpha_GL = 0.40;
 beta_GL  = 0.44;
 
-% sigma ATM e normalizzazione GL
-yf    = yearfrac(valueDate, expiries, 3);
-c_ATM = zeros(length(forward), 1);
-for i = 1:length(forward)
-    c_ATM(i) = callATM(calls(i,:), puts(i,:), strikes, forward(i), discount_factor(i));
-end
-sigma_ATM      = sigmaATM(c_ATM, discount_factor, yf, expiries);
 integrand_mean = @(x) pdf_GL(alpha_GL, beta_GL, x) .* x;
 I0_opt         = sqrt(2*pi) * quadgk(integrand_mean, 0, inf);
 
-% Tempi e sigma
-t1 = yearfrac(valueDate, valueDate + calmonths(6), 3);
-t2 = yearfrac(valueDate, valueDate + calyears(1),  3);
-sigma_t1 = sigma_ATM(2) / I0_opt;
-sigma_t2 = sigma_ATM(4) / I0_opt;
+sigma_t = sigma_atm / I0_opt;          % sigma_t(iT) = sigma_ATM(iT)/I_0
 
-%DF 
-B_t0_t1 = discount_factor(2);
-B_t0_t2 = discount_factor(4);
-B_t1_t2 = B_t0_t2/B_t0_t1; 
+%% Selezione maturity T1 = 6m, T2 = 1y 
+T1       = yf(2);       T2       = yf(4);
+sigma_T1 = sigma_t(2);  sigma_T2 = sigma_t(4);
 
-%prezzi call interna con FFT
-[X_t1_grid, C_t1_grid] = call_GL_FFT(alpha_GL, beta_GL, t1, sigma_t1, t2, sigma_t2, B_t1_t2);
+seed   = 1234;
+Nsim   = 1e6;
+N_grid = 300;
 
-%simulo con MC tra t0 e t1 
-[CDF_t1, zk_t1] = lewis_fft_cdf(@cf_increment_GL, alpha_GL, beta_GL, ...
-                                0, 0, sigma_t1, t1);
-[X1_sim, ~, ~]  = simulate_increments(zk_t1, CDF_t1, 1e5, 1);
+%% --- 4a Call-on-Call (CoC) ---------------------------------------------
+K1 = 1;                                  
 
-%interpolare 
-call_sim = interp1(X_t1_grid, C_t1_grid, X1_sim, 'pchip', 'extrap');
+rng(seed);
+[CoC_price, CoC_IC] = price_COC_GL_MC(T1, T2, alpha_GL, beta_GL, ...
+                                      sigma_T1, sigma_T2, Nsim, ...
+                                      forward(4), discount_factor(2), ...
+                                      discount_factor(2), N_grid, K1);
 
-%payoff e price 
-K1= B_t0_t1 * mean(call_sim); %CoC ATM rispetto call interna
-payoff_CoC = max(call_sim - K1, 0);
-price_CoC = B_t0_t1 * mean(payoff_CoC); 
+% Sanity: K1=0 collassa l'outer max -> vanilla ATM-forward Call at T2.
+rng(seed);
+[CoC_K0, ~] = price_COC_GL_MC(T1, T2, alpha_GL, beta_GL, ...
+                              sigma_T1, sigma_T2, Nsim, ...
+                              forward(4), discount_factor(2), ...
+                              discount_factor(2), N_grid, 0);
+G0       = G0_GL(alpha_GL, beta_GL);                    % E[z^+] normalizzato
+C_T2_ATM = discount_factor(4) * sigma_atm(4) * sqrt(T2) * G0;
+
+fprintf('\n--- 4a CoC GL (K1=%.2f, K2=F(t0,T2)=%.4f, T1=%.2fy, T2=%.2fy) ---\n', ...
+        K1, forward(iT2), T1, T2);
+fprintf('MC price       : %.4f   95%% CI [%.4f, %.4f]\n', CoC_price, CoC_IC(1), CoC_IC(2));
+fprintf('Sanity (K1=0)  : MC %.4f  vs  FFT Call_T2_ATM %.4f   (rel err %.2e)\n', ...
+        CoC_K0, C_T2_ATM, abs(CoC_K0 - C_T2_ATM)/C_T2_ATM);
+
+%% --- 4a Put-on-Put (PoP) -----------------------------------------------
+rng(seed);
+[PoP_price, PoP_IC] = price_POP_GL_MC(T1, T2, alpha_GL, beta_GL, ...
+                                      sigma_T1, sigma_T2, Nsim, ...
+                                      forward(4), discount_factor(2), ...
+                                      discount_factor(4), N_grid, K1);
+
+fprintf('\n--- 4a PoP GL (K1=%.2f, K2=F(t0,T2)=%.4f) ---\n', K1, forward(iT2));
+fprintf('MC price       : %.4f   95%% CI [%.4f, %.4f]\n', PoP_price, PoP_IC(1), PoP_IC(2));
+
+%% --- 4b Chooser --------------------------------------------------------
+rng(seed);
+[ch_price, ch_IC] = price_chooser_GL_MC(T1, T2, alpha_GL, beta_GL, ...
+                                        sigma_T1, sigma_T2, Nsim, ...
+                                        forward(iT2), discount_factor(iT2), N_grid);
+ 
+% Sanity (Stochastic-Reset trick, come collega):
+% Chooser = B(0,T2) * G(0) * [sigma_ATM(T2)*sqrt(T2) + sigma_ATM(T1)*sqrt(T1)]
+ch_analytic = discount_factor(iT2) * G0 * ...
+              ( sigma_atm(iT2)*sqrt(T2) + sigma_atm(iT1)*sqrt(T1) );
+ 
+fprintf('\n--- 4b Chooser GL (K=F(t0,T2)=%.4f, T1=%.2fy, T2=%.2fy) ---\n', ...
+        forward(iT2), T1, T2);
+fprintf('MC price       : %.4f   95%% CI [%.4f, %.4f]\n', ch_price, ch_IC(1), ch_IC(2));
+fprintf('Analytic (SR)  : %.4f                            (rel err %.2e)\n', ...
+        ch_analytic, abs(ch_price - ch_analytic)/ch_analytic);
 
 
-%% estrapolazione smart 
-p_minus_t1  = alpha_GL / (sigma_t1 * sqrt(t1));
-p_plus_t1 = beta_GL  / (sigma_t1 * sqrt(t1));
-
-[X1_sim_smart, ~, ~] = simulate_increments_smart(zk_t1, CDF_t1, 1e5, 1, p_minus_t1, p_plus_t1);
-call_sim_smart = interp1(X_t1_grid, C_t1_grid, X1_sim_smart, 'pchip', 'extrap');
-%payoff e price 
-K1= B_t0_t1 * mean(call_sim_smart);  
-payoff_CoC_smart = max(call_sim_smart - K1, 0);
-price_CoC_smart = B_t0_t1 * mean(payoff_CoC_smart); 
-
-%% PRICE PoP - GL model 
-% put call parity su C_t1_grid 
-
-P_t1_grid = C_t1_grid - B_t1_t2 * X_t1_grid; 
-put_sim_smart = interp1(X_t1_grid, P_t1_grid, X1_sim_smart, 'pchip', 'extrap');
-
-K1_put = B_t0_t1 * mean(put_sim_smart);
-payoff_PoP_smart = max(K1_put - put_sim_smart, 0); 
-price_PoP_smart = B_t0_t1 * mean(payoff_PoP_smart);
-
-
-%% PRICE CHOOSER - GL model 
-
-payoff_chooser_smart = max(call_sim_smart, put_sim_smart);
-price_chooser_smart = B_t0_t1 * mean(payoff_chooser_smart);
-
-%% print risultati
-fprintf('\n--- RISULTATI FINALI ---\n');
-fprintf('Prezzo CoC (ATM) : %.4f\n', price_CoC_smart);
-fprintf('Prezzo PoP (ATM) : %.4f\n', price_PoP_smart);
-fprintf('Prezzo Chooser   : %.4f\n', price_chooser_smart);
-
-
+%% ----------------------------------------------------------------------
+function g0 = G0_GL(alpha, beta)
+% G(0) = E[ z^+ ] for z ~ GL(alpha,beta) (standardized via cf_GL).
+% Used in the analytical sanity checks (Stochastic-Reset trick).
+    integrand = @(x) pdf_GL(alpha, beta, x) .* x;
+    g0 = quadgk(integrand, 0, inf);
+end

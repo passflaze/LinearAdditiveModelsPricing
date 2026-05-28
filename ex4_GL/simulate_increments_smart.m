@@ -1,38 +1,57 @@
-function [X_sim, x_grid_clean, CDF_clean] = simulate_increments_smart(x_grid, CDF_grid, N_sim, seed, p_minus, p_plus)
+function Z = simulate_increments_smart(x_grid, cdf, Nsim)
+% SIMULATE_INCREMENTS_SMART  Inverse-CDF sampler with exponential
+% tail extrapolation outside the FFT range.
+%
+% Inputs
+%   x_grid : N x 1 vector of moneyness points (output of lewis_fft_cdf)
+%   cdf    : N x 1 CDF values at x_grid
+%   Nsim   : number of samples
+%
+% Output
+%   Z      : Nsim x 1 vector of simulated increments
 
-    rng(seed);
-    U = rand(N_sim, 1);
-    
-    % 1. Pulizia della griglia FFT (togliere i NaN e i valori non strettamente crescenti)
-    valid_idx = ~isnan(CDF_grid) & ~isinf(CDF_grid) & (CDF_grid > 0) & (CDF_grid < 1);
-    x_valid = x_grid(valid_idx);
-    CDF_valid = CDF_grid(valid_idx);
-    
-    % Assicuriamoci che la CDF sia strettamente crescente (necessario per interp1)
-    [CDF_clean, unique_idx] = unique(CDF_valid, 'stable');
-    x_grid_clean = x_valid(unique_idx);
-    
-    % 2. Identificazione dei bordi
-    x_min = x_grid_clean(1);
-    F_min = CDF_clean(1);
-    
-    x_max = x_grid_clean(end);
-    F_max = CDF_clean(end);
-    
-    % 3. Allocazione del vettore dei risultati
-    X_sim = zeros(N_sim, 1);
-    
-    % --- SMART EXTRAPOLATION ---
-    
-    % A. Coda Sinistra
-    idx_left = U < F_min;
-    X_sim(idx_left) = x_min + (1 / p_minus) * log(U(idx_left) / F_min);
-    
-    % B. Coda Destra
-    idx_right = U > F_max;
-    X_sim(idx_right) = x_max - (1 / p_plus) * log((1 - U(idx_right)) / (1 - F_max));
-    
-    % C. Zona Centrale (FFT)
-    idx_center = (U >= F_min) & (U <= F_max);
-    X_sim(idx_center) = interp1(CDF_clean, x_grid_clean, U(idx_center), 'pchip'); % pchip evita oscillazioni
+x_grid = x_grid(:);
+cdf    = cdf(:);
+
+% restrict to monotone segment in (0,1) 
+in_bounds = (cdf > 0) & (cdf < 1) & isfinite(cdf);
+idx_b = find(in_bounds, 1, 'first');
+idx_e = find(in_bounds, 1, 'last');
+
+x_v = x_grid(idx_b:idx_e);
+c_v = cdf(idx_b:idx_e);
+
+% enforce strict monotonicity (remove plateaus and micro-dips)
+c_v  = cummax(c_v);
+keep = [true; diff(c_v) > 0];
+x_v  = x_v(keep);
+c_v  = c_v(keep);
+
+% rule-of-thumb tail check
+tail_err = max(c_v(1), 1 - c_v(end));
+if tail_err > 1.5e-4
+    warning('simulate_increments_smart:tails', ...
+        'Tail mass = %.2e > 1e-4. Widen x_grid or refine CDF grid.', tail_err);
+end
+
+% inverse spline 
+U = rand(Nsim, 1);
+Z = interp1(c_v, x_v, U, 'spline');
+
+% --- exponential tail extrapolation ------------------------------------
+% Left tail:   F(x) ~ c_v(1) * exp( lam_m * (x - xb) )       for x <= xb
+% Right tail:  1 - F(x) ~ (1-c_v(end)) * exp(-lam_p * (x - xe))  x >= xe
+% Decay rates lam_m, lam_p estimated locally from the CDF values.
+xb = x_v(1);     xe = x_v(end);
+Pb = c_v(1);     Pe = c_v(end);
+
+lam_m = (log(c_v(2))         - log(Pb))     / (x_v(2)     - xb);
+lam_p = (log(1 - c_v(end-1)) - log(1 - Pe)) / (xe - x_v(end-1));
+
+left  = U < Pb;
+right = U > Pe;
+Z(left)  = xb + log( U(left)  / Pb )       / lam_m;
+Z(right) = xe - log( (1 - U(right)) / (1 - Pe) ) / lam_p;
+
+Z = Z(:);
 end
