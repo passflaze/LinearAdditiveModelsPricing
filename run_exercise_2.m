@@ -68,7 +68,7 @@ sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries);
 % Verify the additive-model precondition (sigma_ATM * sqrt(t) increasing).
 % No (alpha, beta) calibration can fix this if it fails -- it is a data
 % condition. The check only warns; calibration still proceeds.
-%check_term_structure(sigma_ATM, yf, expiries);
+check_term_structure(sigma_ATM, yf, expiries);
 
 % Generate the modified moneyness matrix and filter out-of-bounds market prices.
 % Bounds are now in *normalized* moneyness chi = (K - F)/(sigma_ATM*sqrt(t)),
