@@ -94,8 +94,8 @@ rng(seed);
 %   PoP_deep = B(0,T1)*K1 - B(0,T1)*E[P(T1)]
 % e per tower property + martingalita' B(0,T1)*E[P(T1)] e' la vanilla put
 % ATM-forward a T2:  put_T2_ATM = B(0,T2)*sigma_t(T2)*sqrt(T2)*G0
-% (centratura => E[z^-]=E[z^+]=G0). Quindi:
-%   PoP_deep_ref = B(0,T1)*K1_deep - put_T2_ATM
+% (centratura => E[z^-]=E[z^+]=G0). 
+% Quindi:PoP_deep_ref = B(0,T1)*K1_deep - put_T2_ATM
 % Scegliamo K1_deep molto sopra il valore atteso della put interna a T1
 % (la put interna a T1 vale in media ~ put ATM a T2 / B(0,T1)).
 put_T2_ATM = discount_factor(iT2) * sigma_t(iT2) * sqrt(T2) * G0;
