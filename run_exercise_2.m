@@ -1,4 +1,4 @@
-%% MAIN SCRIPT - VOLATILITY SURFACE CALIBRATION (MA & GL MODELS)
+%% MAIN SCRIPT - VOLATILITY SURFACE CALIBRATION (AB, MA & GL MODELS)
 % This script loads market option data, bootstraps the forward curve and 
 % discount factors, calibrates the ATM volatility, and fits both the 
 % Minimal Additive (MA) and Generalized Laplace (GL) models to the market surface.
@@ -120,6 +120,8 @@ obj_fun_AB = @(x) objective_function_AB(x, discount_factor, yf, sigma_ATM, ...
 
 k_AB   = x_opt_AB(1);
 eta_AB = x_opt_AB(2);
+I_0=I0(0,k_AB,eta_AB); % I0 is the scale factor for the AB model, used to recover sigma_t from sigma_ATM via sigma_t = sigma_ATM / I_0.
+sigma_t = sigmaATM /I_0;
 
 fprintf('\n  -> Optimal parameters found: k = %.6f, eta = %.6f.\n', k_AB, eta_AB);
 fprintf('  -> AB Calibration completed (exitflag = %d, SSE = %.6g).\n\n', ...
