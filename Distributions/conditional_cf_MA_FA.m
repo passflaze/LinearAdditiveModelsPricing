@@ -1,4 +1,4 @@
-function y = conditional_cf_MA_FA(u, pt_plus, pt_minus, ps_plus, ps_minus)
+function y = conditional_cf_MA_FA(u, params, scale_factor)
 %CONDITIONAL_CF_MA_FA Computes the conditional characteristic function of a single jump.
 %   Y = CONDITIONAL_CF_MA_FA(U, PT_PLUS, PT_MINUS, PS_PLUS, PS_MINUS) calculates the 
 %   characteristic function of individual jumps, phi_J(u), conditional on 
@@ -22,6 +22,9 @@ function y = conditional_cf_MA_FA(u, pt_plus, pt_minus, ps_plus, ps_minus)
 %   Outputs:
 %       y        - Complex characteristic function values evaluated at each U
 %
+
+    ps_plus = params(2)/scale_factor(1); ps_minus = params(1)/scale_factor(1);
+    pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
 
     % 1. Compute the integrated intensity Lambda over [s, t]
     lambda_t_s = pointmasscalculator(pt_plus, pt_minus, ps_plus, ps_minus);

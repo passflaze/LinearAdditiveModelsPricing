@@ -1,4 +1,4 @@
-function cf = cf_MA_IA(u, pt_plus, pt_minus,ps_plus,ps_minus,deltamu)
+function cf = cf_MA_IA(u, params, scale_factor)
 %CF_MA_IA Computes the Characteristic Function of the MA base process.
 %
 %   CF = CF_MA_IA(U, PT_PLUS, PT_MINUS) evaluates the exact 
@@ -13,6 +13,8 @@ function cf = cf_MA_IA(u, pt_plus, pt_minus,ps_plus,ps_minus,deltamu)
 %   Outputs:
 %       cf       - The evaluated Characteristic Function (complex array)
 
+
+    pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
     % =========================================================================
     % 1. DYNAMIC PARAMETER EVALUATION
     % =========================================================================

@@ -1,4 +1,4 @@
-function y = cf_MA_FA(u, pt_plus, pt_minus, ps_plus, ps_minus, deltamu)
+function y = cf_MA_FA(u, params, scale_factor)
 % CF_MA_FA Computes the characteristic function of the Finite Activity (FA)
 % increment under the Minimal Additive (MA) model.
 %
@@ -21,6 +21,12 @@ function y = cf_MA_FA(u, pt_plus, pt_minus, ps_plus, ps_minus, deltamu)
 %
 %   Output:
 %       y        : Evaluated characteristic function at u
+
+
+    ps_plus = params(2)/scale_factor(1); ps_minus = params(1)/scale_factor(1);
+    pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
+    gamma_MA = (1 / params(1)) - (1 /params(2));
+    deltamu = gamma_MA * (scale_factor(2) - scale_factor(1));
 
     % 1. Point mass probability 'c' (ratio of normalizing constants)
     c = (pt_plus * pt_minus) / (ps_plus * ps_minus);
