@@ -18,7 +18,7 @@ xk = x1 + dx * j;
 % (sigma_t = 1 inside the CF here, so the f_t-strip coincides with the zeta-strip).
 % Default -1/2 if safely inside; otherwise pull it back to a fraction of p+ with margin.
 p_plus = eta + sqrt(eta^2 + 1/k);
-a =  -0.45 * p_plus;
+a = -min(0.45 * p_plus, 0.5);
 
 phi=charateristic_function_AB(1,k,eta,1);
 

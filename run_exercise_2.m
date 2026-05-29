@@ -73,16 +73,17 @@ sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries);
 check_term_structure(sigma_ATM, yf, expiries);
 
 % Generate the modified moneyness matrix and filter out-of-bounds market prices.
-% Bounds are now in *normalized* moneyness chi = (K - F)/(sigma_ATM*sqrt(t)),
-% so the band covers a comparable number of standard deviations at every
-% maturity (cf. paper 3 Sec. 3, separability of the implied vol).
-chi_min = -5;
-chi_max = 5;
+% Selection band is in *dollar* moneyness x = K - F, x in [-30 $, 30 $], i.e.
+% exactly the OTM set of paper 3 (Sec. 4.1 / Table 3) and consistent with
+% run_project2A. The normalized moneyness chi = x/(sigma_ATM*sqrt(t)) is still
+% returned as the model coordinate (Eq. 17), it just no longer defines the band.
+x_min = -30;
+x_max =  30;
 [moneyness_modified, c_mkt_calibration] = moneyness_generator( ...
     forward, strikes, calls, puts, sigma_ATM, yf, discount_factor, ...
-    chi_min, chi_max);
-fprintf('  -> Surface filtered on chi in [%g, %g] and prepared for optimization.\n\n', ...
-    chi_min, chi_max);
+    x_min, x_max);
+fprintf('  -> Surface filtered on dollar moneyness x in [%g, %g] $ and prepared for optimization.\n\n', ...
+    x_min, x_max);
 
 %% =========================================================================
 % STEP 3: ADDITIVE BACHELIER (AB) MODEL CALIBRATION

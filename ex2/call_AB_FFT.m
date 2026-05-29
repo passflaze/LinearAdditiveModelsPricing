@@ -22,8 +22,11 @@ end
 
 % Lewis contour: sigma_t = 1/I_0 inside the CF, so the f_t-strip is
 % (-p+ * I_0, p- * I_0) with p+- = +-eta + sqrt(eta^2 + 1/k).
+% Keep the stable default 0.5 when the strip is wide; only pull the contour
+% in (towards the lower branch point) when the strip is narrow. The cap also
+% prevents exp(a*zk) overflow as k -> 0, where p_plus ~ 1/sqrt(k) blows up.
 p_plus = eta + sqrt(eta^2 + 1/k);
-a =  -0.45 * p_plus * I_0;
+a = -min(0.45 * p_plus * I_0, 0.5);
 
 phi = charateristic_function_AB(1,k,eta,1/I_0);
 
