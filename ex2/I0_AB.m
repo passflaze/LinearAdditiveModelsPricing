@@ -1,4 +1,4 @@
-function I = I0(x,k, eta)
+function I = I0_AB(x,k, eta)
 % Computes I0 using FFT method
 % Inputs/output to be completed
 
