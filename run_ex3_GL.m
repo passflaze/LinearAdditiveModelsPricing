@@ -43,7 +43,7 @@ sigma_s = sigma_ATM(2) / I0_opt;
 sigma_t = sigma_ATM(4) / I0_opt;
 
 
-[CDF_grid, zk] = lewis_fft_cdf(@cf_increment_GL, alpha_GL, beta_GL, sigma_s, s, sigma_t, t);
+[CDF_grid, zk] = lewis_fft_cdf_old(@cf_increment_GL, alpha_GL, beta_GL, sigma_s, s, sigma_t, t);
 
 fprintf('CDF estremi: P(x_1)=%.4e   1-P(x_N)=%.4e\n', ...
         CDF_grid(1), 1 - CDF_grid(end));
@@ -80,7 +80,7 @@ sigma_t_g = 1;
 t_g       = 1;
 
 % Chiamata alla funzione
-[CDF_gauss, zk_g] = lewis_fft_cdf(cf_gauss, alpha_g, beta_g, ...
+[CDF_gauss, zk_g] = lewis_fft_cdf_old(cf_gauss, alpha_g, beta_g, ...
                                   sigma_s_g, s_g, sigma_t_g, t_g);
 
 % CDF analitica

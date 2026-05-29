@@ -125,7 +125,7 @@ alpha_GL = p_minus;
 beta_GL  = p_plus;
 
 % Translation parameter (using MATLAB's built-in digamma function 'psi')
-gamma_GL = psi(beta_GL) - psi(alpha_GL); % to check !!!!
+gamma_GL = psi(beta_GL) - psi(alpha_GL); 
 
 % Normalization constant
 C_GL = gamma(alpha_GL + beta_GL) / (gamma(alpha_GL) * gamma(beta_GL));
