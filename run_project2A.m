@@ -10,7 +10,7 @@ valueDate = datetime(2020,06,02);
 
 [strikes, calls, puts, expiries] = readData(callpath, putpath, valueDate, expiryFile);
 
-%% bootstrap: synthetic discount factor and forward, one per maturity
+%% EX 1 bootstrap: synthetic discount factor and forward, one per maturity
 nT = numel(expiries);
 discount_factor = zeros(nT,1);
 forward = zeros(nT,1);
@@ -59,7 +59,7 @@ chi_all   = vertcat(chi_cell{:});
 cNorm_all = vertcat(cNorm_cell{:});
 
 %% calibrate Additive Bachelier (global: eta and k constant across maturities)
-[kAB, eta, sigma_t, rMSE] = calibrateAB(chi_all, cNorm_all, sigma_atm)
+[kAB, eta, sigma_t, rMSE] = calibrateAB(chi_all, cNorm_all, sigma_atm);
 
 %% verify the fit visually: scatter of market vs model price on the chi grid
 chi_grid = linspace(min(chi_all), max(chi_all), 200)';
