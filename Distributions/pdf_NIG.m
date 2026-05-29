@@ -1,4 +1,4 @@
-function f = nigpdf(x, alpha, beta, mu, delta)
+function f = pdf_NIG(x, alpha, beta, mu, delta)
 % NIGPDF Calculates the Probability Density Function (PDF) of the Normal Inverse Gaussian.
 %
 % INPUT:
