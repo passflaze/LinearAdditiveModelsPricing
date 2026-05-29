@@ -10,6 +10,8 @@ clear; clc; close all;
 % =========================================================================
 addpath("Utilities/");
 addpath("Calibration/");
+addpath("ex2/");
+addpath("Distributions/");
 
 fprintf('=========================================================================\n');
 fprintf('             VOLATILITY SURFACE CALIBRATION ENGINE                       \n');

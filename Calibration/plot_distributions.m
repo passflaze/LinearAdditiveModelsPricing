@@ -14,22 +14,14 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
     % 1. Global Parameters and Evaluation Grid
     % =========================================================================
     % Unified spatial grid for evaluating the probability density functions
-    x_grid = linspace(-30, 30, 500); 
+    x_grid = linspace(-30, 30, 500);
 
     % =========================================================================
     % 2. Asymmetric Laplace Distribution (MA Model)
     % =========================================================================
-    % Analytical structural components
-    gamma_MA = @(a, b) (1/a - 1/b);
-    C_MA     = @(a, b) (1/b + 1/a)^(-1);
-    A_MA     = @(a, b) (a - b) / 2;
-    B_MA     = @(a, b) (a + b) / 2;
-    
-    % Fully vectorized PDF definition
-    pdf_MA = @(a, b, x) C_MA(a,b) .* exp(A_MA(a,b).*(x - gamma_MA(a,b)) - B_MA(a,b).*abs(x - gamma_MA(a,b)));
-    
-    % Evaluate MA density on the grid
-    y_MA = pdf_MA(alpha_MA, beta_MA, x_grid);
+    % Evaluate MA density using dedicated function from Distributions folder
+    % Note: sigmat=1 (no time-scaling in this visualization context)
+    y_MA = pdf_MA(alpha_MA, beta_MA, 1, x_grid);
 
     % =========================================================================
     % 3. Additive Bachelier Distribution (AB via NIG Model)
@@ -38,29 +30,21 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
     mu        = eta_AB;
     gamma_AB  = -eta_AB;
     lam_IG1   = 1 / kappa_AB;
-    
+
     alpha_nig = sqrt(gamma_AB^2 + lam_IG1);
     beta_nig  = gamma_AB;
     delta_nig = sqrt(lam_IG1);
     mu_nig    = mu;
-    
-    % Evaluate AB density using MATLAB's built-in NIG PDF function
-    y_AB = nigpdf(x_grid, alpha_nig, beta_nig, mu_nig, delta_nig);
+
+    % Evaluate AB density using custom NIG PDF function from Distributions folder
+    % Note: parameter order is (x, alpha, beta, mu, delta) vs. MATLAB's nigpdf
+    y_AB = pdf_NIG(x_grid, alpha_nig, beta_nig, mu_nig, delta_nig);
 
     % =========================================================================
     % 4. Generalized Logistic Distribution (GL)
     % =========================================================================
-    % Location/shift parameter using the digamma function
-    gamma_GL = psi(beta_GL) - psi(alpha_GL); 
-    
-    % Normalization constant using the Gamma function
-    C_GL = gamma(alpha_GL + beta_GL) / (gamma(alpha_GL) * gamma(beta_GL));
-    
-    % Fully vectorized PDF definition
-    pdf_GL = @(a, b, g, x) C_GL .* (exp(a .* (x - g)) ./ (1 + exp(x - g)).^(a + b));
-    
-    % Evaluate GL density on the grid
-    y_GL = pdf_GL(alpha_GL, beta_GL, gamma_GL, x_grid);
+    % Evaluate GL density using dedicated function from Distributions folder
+    y_GL = pdf_GL(alpha_GL, beta_GL, x_grid);
 
     % =========================================================================
     % 5. Benchmark: Standard Normal Distribution
