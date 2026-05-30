@@ -37,7 +37,10 @@ function [phi, c_neg, c_pos] = model_marginal_cf(model, params, T, sigma_T)
             alpha = params.alpha;
             beta  = params.beta;
             sT    = sigma_T * sqrt(T);
-            phi   = @(u) cf_GL(u .* sT, alpha, beta);  % 3-arg cf_GL(z,alpha,beta)
+            % cf_GL signature (Distributions/cf_GL.m): cf_GL(u, [alpha,beta], scale)
+            % -> pass the param VECTOR and let cf_GL apply the scale internally
+            % (u is scaled by sT inside). Same convention as cf_increment_GL.
+            phi   = @(u) cf_GL(u, [alpha, beta], sT);
             c_neg = alpha;   % left edge of (-alpha, beta) -> a_neg
             c_pos = beta;    % right edge                  -> a_pos
 

@@ -1,8 +1,22 @@
-%% MAIN SCRIPT - EX 3: FORWARD START PRICING  (MA + AB + GL)
-% run_exercise_3 for the 3 models. The market curve, ATM volatility and
-% the forward-start window [t1 = yf(2), t2 = yf(4)] are shared; each model is
-% then priced with its own engine:
-%   MA      -> Functions_ex3/   (FA_simulation, pricing_fwd_start_analytic/_MC)
+function LA_results = run_ex3(params, market)
+%% EX 3: FORWARD START PRICING  (MA + AB + GL)
+% run_exercise_3 for the 3 models, usando i parametri GIA calibrati in ex2
+% (calibrate_surface) e i dati di mercato gia bootstrappati. Non ripete piu
+% bootstrap / ATM vol / calibrazione: li riceve in input.
+%
+% INPUT:
+%   params : struct dei parametri calibrati (output di calibrate_surface)
+%            .MA.alpha, .MA.beta
+%            .AB.k,     .AB.eta
+%            .GL.alpha, .GL.beta
+%   market : struct dei dati di mercato/supporto (output di calibrate_surface)
+%            .strikes, .calls, .puts, .expiries
+%            .discount_factor, .forward, .R2, .sigma_ATM, .yf
+%
+% Se chiamata senza argomenti, esegue prima calibrate_surface (modalita
+% standalone). La forward-start window [t1 = yf(2), t2 = yf(4)] e condivisa;
+% ogni modello e poi prezzato con il proprio engine:
+%   MA      -> Functions/   (FA_simulation, pricing_fwd_start_analytic/_MC)
 %   AB, GL  -> UNIFIED Simulation/ engine: model_marginal_cf dispatch ->
 %              ccdf_increment_FFT -> tail_adjustment -> simulate_from_cdf ->
 %              price_fwd_start_MC. The only model-specific inputs are the
@@ -13,72 +27,50 @@
 % the forward-start price (analytic / FFT reference) against Monte Carlo: MA
 % across many strikes; AB and GL at the ATM forward start (K2 = 1), where the
 % payoff reduces to max(W, 0).
-
-clear; clc; close all;
-
-% Single global RNG seed for the whole script 
-rng(1234);
+%
+% OUTPUT:
+%   LA_results : struct array con i prezzi forward-start AB/GL (analytic + MC).
 
 % =========================================================================
 % PATHS INITIALIZATION
 % =========================================================================
 addpath("Utilities/");
-addpath("Functions/");          
-addpath("Distributions/");      
-addpath("Calibration/");     
+addpath("Functions/");
+addpath("Distributions/");
+addpath("Calibration/");
+addpath("ex2/");
 addpath("Simulation/");
-addpath("Simulation/Simulation_MA/")         
+addpath("Simulation/Simulation_MA/")
+
+% Single RNG seed for reproducibility
+rng(1234);
+
+% Standalone mode: if no calibrated inputs are passed, calibrate first.
+if nargin < 2
+    [params, market] = calibrate_surface(struct('verbose', false));
+end
+
 fprintf('=========================================================================\n');
 fprintf('        LINEAR ADDITIVE MODELS (MA / AB / GL) - FORWARD-START ENGINE      \n');
 fprintf('=========================================================================\n\n');
 
 %% =========================================================================
-% STEP 1: DATA LOADING AND BOOTSTRAPPING
+% STEP 1-2: UNPACK MARKET DATA AND CALIBRATED PARAMETERS
 % =========================================================================
-fprintf('STEP 1: Loading data and bootstrapping curve...\n');
-callpath   = "Data/datacalls";
-putpath    = "Data/dataputs";
-expiryFile = "Data/Expiries_Futures.txt";
-valueDate  = datetime(2020, 06, 02);
+fprintf('STEP 1-2: Using pre-calibrated curve, ATM vol and model parameters...\n');
 
-% Read market options data
-[strikes, calls, puts, expiries] = readData(callpath, putpath, valueDate, expiryFile);
+% Market / support data (from ex2 calibrate_surface)
+strikes         = market.strikes;
+calls           = market.calls;
+puts            = market.puts;
+expiries        = market.expiries;
+discount_factor = market.discount_factor;
+forward         = market.forward;
+sigma_ATM       = market.sigma_ATM;
+yf              = market.yf;
+nT              = numel(expiries);
 
-% Bootstrap synthetic discount factors and forwards
-nT = numel(expiries);
-discount_factor = zeros(nT, 1);
-forward         = zeros(nT, 1);
-R2              = zeros(nT, 1);
-
-for k = 1:nT
-    [discount_factor(k), forward(k), R2(k)] = bootstrap(puts(k,:), calls(k,:), strikes);
-end
-
-% Print Bootstrap Results
-fprintf("\n--- Bootstrap Results (Value Date: %s) ---\n", string(valueDate, "yyyy-MM-dd"));
-fprintf("%-12s  %10s  %10s  %8s\n", "Expiry", "D(t,T)", "F(t,T)", "R^2");
-for k = 1:nT
-    fprintf("%-12s  %10.6f  %10.4f  %8.4f\n", ...
-        string(expiries(k), "yyyy-MM-dd"), ...
-        discount_factor(k), forward(k), R2(k));
-end
-fprintf('-------------------------------------------------------------------------\n\n');
-
-%% =========================================================================
-% STEP 2: ATM VOLATILITY CALIBRATION
-% =========================================================================
-fprintf('STEP 2: Calibrating ATM Volatility...\n');
-c_ATM = zeros(length(forward), 1);
-
-for i = 1:length(forward)
-    current_calls = calls(i, :);
-    current_puts  = puts(i, :);
-    c_ATM(i)      = callATM(current_calls, current_puts, strikes, forward(i), discount_factor(i));
-end
-
-yf = yearfrac(valueDate, expiries, 3);
-sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries);
-fprintf('  -> ATM Volatility successfully calibrated for %d maturities.\n\n', nT);
+fprintf('  -> Market data and ATM volatility loaded for %d maturities.\n\n', nT);
 
 % Shared forward-start window: t1 = yf(2), t2 = yf(4)
 iT1 = 2;  iT2 = 4;
@@ -114,10 +106,11 @@ fprintf('  -> Validation complete.\n\n');
 % =========================================================================
 fprintf('STEP 4 (MA): Setting up Minimal Additive parameters...\n');
 
-% 1. Model Parameters definition (calibrated in Exercise 2)
-alpha_MA = 1;
-beta_MA  = 0.982156;
+% 1. Model Parameters (calibrated in Exercise 2 -> params.MA)
+alpha_MA = params.MA.alpha;
+beta_MA  = params.MA.beta;
 gamma_MA = (1/alpha_MA) - (1/beta_MA);
+fprintf('  -> MA: alpha = %.6f, beta = %.6f (from ex2 calibration)\n', alpha_MA, beta_MA);
 
 % 2. Relevant dates / vols on the forward-start window
 yf_fwd        = [yf(iT1); yf(iT2)];
@@ -213,10 +206,13 @@ fprintf('STEP 7 (AB / GL): Unified forward-start pricing...\n');
 N_sim_LA   = 1e6;
 fwd_factor = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forward.pdf)
 
-% model configuration (params + I_0 normalisation) 
+% model configuration (params + I_0 normalisation)
 % AB: I_0 from I0_AB (ex2). GL: I_0 = sqrt(2*pi)*E[zeta_+] (Baviera-Massaria Eq.14)
-kAB = 0.93;  eta_AB = -0.06;
-alpha_GL = 0.44;  beta_GL = 0.40;
+% Parameters calibrated in Exercise 2 -> params.AB / params.GL
+kAB = params.AB.k;  eta_AB = params.AB.eta;
+alpha_GL = params.GL.alpha;  beta_GL = params.GL.beta;
+fprintf('  -> AB: k = %.6f, eta = %.6f | GL: alpha = %.6f, beta = %.6f (from ex2)\n', ...
+        kAB, eta_AB, alpha_GL, beta_GL);
 integrand_mean_GL = @(x) pdf_GL(alpha_GL, beta_GL, x) .* x;
 
 models(1) = struct('name', 'AB', ...
