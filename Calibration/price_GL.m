@@ -119,7 +119,7 @@ end
 function out = lewis_fft_(x_grid, alpha, beta, shift, prefactor, twist)
 % Evaluate dx * sum_j integrand(x_j) * exp(-i x_j z_l) on the z_grid implied
 % by prefactor/twist. integrand(x) = phi(x - i*shift)/(x - i*shift)^2.
-    cf_vals   = cf_GL(x_grid - 1i*shift, alpha, beta);
+    cf_vals   = cf_GL_cal(x_grid - 1i*shift, alpha, beta);
     integrand = cf_vals ./ ((x_grid - 1i*shift).^2);
     out       = prefactor .* fft(integrand .* twist);
 end

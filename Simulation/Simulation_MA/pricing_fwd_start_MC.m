@@ -1,4 +1,4 @@
-function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA)
+function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA, fwd_factor)
 % PRICING_FWD_START_MC Computes the Monte Carlo price of a Forward Start Option.
 %
 %   This function completely encapsulates the Minimal Additive (MA) structural
@@ -16,6 +16,8 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
 %       sigma_ATM : At-The-Money implied volatility
 %       alpha_MA  : Alpha parameter of the MA process (governs left tail)
 %       beta_MA   : Beta parameter of the MA process (governs right tail)
+%       fwd_factor: (optional, default 1) Lemma 2 rescaling B(0,t1)/B(0,t2)
+%                   so that F(t1,t2) = forward + fwd_factor*f_{t1,t1}.
 %
 %   OUTPUTS:
 %       price     : The discounted expected payoff of the option
@@ -24,7 +26,13 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % =========================================================================
     % STEP 0: INPUT VALIDATION & INITIALIZATION
     % =========================================================================
-    
+    % Lemma 2 (Forward.pdf): f_{T1,T2} = fwd_factor * f_{T1,T1} with
+    % fwd_factor = B(0,T1)/B(0,T2) = exp(int_{T1}^{T2} r_s ds). Default 1
+    % recovers the zero-inter-reset-rate case (backward compatible).
+    if nargin < 10 || isempty(fwd_factor)
+        fwd_factor = 1;
+    end
+
     % =========================================================================
     % STEP 1: INTERNAL PARAMETER COMPUTATION
     % =========================================================================
@@ -94,18 +102,20 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % =========================================================================
     % STEP 4: ASSEMBLE PATHS & PAYOFF
     % =========================================================================
-    % Ft1 represents the simulated underlying price at the forward start date (t1).
-    Ft1 = forward + ft0t1; % Size: (N_sim, 1)
-    
-    % St2 represents the simulated final price at maturity (t2).
-    St2 = Ft1 + ft1t2;     % Size: (N_sim, 1)
-    
+    % Strike reference: forward F(T1,T2) seen at the reset date t1. By Lemma 2
+    % f_{T1,T2} = fwd_factor * f_{T1,T1}, hence F(T1,T2) = forward + fwd_factor*ft0t1.
+    F_T1_T2 = forward + fwd_factor * ft0t1; % Size: (N_sim, 1)
+
+    % St2 = forward + f_{T2,T2} = forward + f_{T1,T1} + (f_{T2,T2}-f_{T1,T1}).
+    % Note ft0t1 enters with coefficient 1 here (diagonal spot), NOT fwd_factor.
+    St2 = forward + ft0t1 + ft1t2;     % Size: (N_sim, 1)
+
     % Ensure K is a row vector for implicit expansion
     K = K(:)'; % Size: (1, N_K)
-    
+
     % Compute the payoff matrix. Size will be (N_sim, N_K).
-    % St2 and Ft1 are expanded horizontally, K is expanded vertically.
-    payoff = max(St2 - K .* Ft1, 0); 
+    % St2 and F_T1_T2 are expanded horizontally, K is expanded vertically.
+    payoff = max(St2 - K .* F_T1_T2, 0);
     
     % =========================================================================
     % STEP 5: FINAL PRICING AND CONFIDENCE INTERVAL (95%)

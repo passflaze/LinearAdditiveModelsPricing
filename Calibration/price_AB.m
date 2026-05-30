@@ -28,7 +28,7 @@ function CallPrice = price_AB(params, discount_factor, yf, sigma_ATM, moneyness_
     % 1. Extract parameters
     k   = params(1);
     eta = params(2);
-    I_0=I0(0,k,eta); % I0 is the scale factor for the AB model, used to recover sigma_t from sigma_ATM via sigma_t = sigma_ATM / I_0.
+    I_0=I0_AB(0,k,eta); % I0 is the scale factor for the AB model, used to recover sigma_t from sigma_ATM via sigma_t = sigma_ATM / I_0.
 
     % 2. Normalized model price G(chi; eta, k) for the WHOLE surface.
     %    call_AB_FFT preserves the shape of its input and returns NaN where

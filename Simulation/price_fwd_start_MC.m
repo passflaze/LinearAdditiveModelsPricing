@@ -1,5 +1,5 @@
 function [price, IC, diag] = price_fwd_start_MC(model, params, T1, T2, ...
-        sigma_T1, sigma_T2, Nsim, forward, B_0_t1, B_0_t2, x_grid, strike, seed)
+        sigma_T1, sigma_T2, Nsim, forward, B_0_t1, B_0_t2, x_grid, strike)
 % PRICE_FWD_START_MC  Monte Carlo price of the forward-start option
 %   payoff = [ S(T2) - strike * F(T1,T2) ]_+
 % under a Linear Additive model ('AB' or 'GL'). Model-agnostic generalisation
@@ -27,17 +27,15 @@ function [price, IC, diag] = price_fwd_start_MC(model, params, T1, T2, ...
 %   B_0_t2           : B(0, T2)   (payoff received at T2)
 %   x_grid           : evaluation grid for the CDFs ($-increments, column)
 %   strike           : K (the K2 of the forward-start option)
-%   seed             : (optional) RNG seed for reproducibility
+%
+% Reproducibility: this function does NOT seed the RNG; set rng(...) once in
+% the caller (Option A) so all MC stages share a single deterministic stream.
 %
 % OUTPUTS
 %   price : B(0,T2) * E[(S(T2) - K*F(T1,T2))_+]
 %   IC    : 95% confidence interval [lo, hi]
 %   diag  : struct with the cleaned conditional CDF (x_cond, cdf_cond) for
 %           plotting / FFT-reference cross-checks.
-
-    if nargin >= 13 && ~isempty(seed)
-        rng(seed);
-    end
 
     x_grid     = x_grid(:);
     fwd_factor = B_0_t1 / B_0_t2;          % Lemma 2: = exp(int_{T1}^{T2} r_s ds)

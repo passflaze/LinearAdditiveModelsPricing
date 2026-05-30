@@ -1,4 +1,4 @@
-function cf = cf_GL(z,alpha, beta)
+function cf = cf_GL_cal(z,alpha, beta)
 % CF_GL Computes the Characteristic Function of the Generalized Laplace distribution.
 %
 % This function evaluates the theoretical characteristic function (CF) derived from

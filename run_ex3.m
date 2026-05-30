@@ -1,31 +1,33 @@
 %% MAIN SCRIPT - EX 3: FORWARD START PRICING  (MA + AB + GL)
-% Copy of run_exercise_3 (Minimal Additive) extended with the Additive
-% Bachelier (AB) and Generalized Logistic (GL) models. The market curve, ATM
-% volatility and the forward-start window [t1 = yf(2), t2 = yf(4)] are shared;
-% each model is then priced with its OWN native functions:
-%   MA -> Functions_ex3   (FA_simulation, pricing_fwd_start_*)
-%   AB -> ex2 + ex3_utilities (calibrateAB, ccdf_AB_FFT, price_AB_MC)
-%   GL -> ex3_GL          (lewis_fft_cdf_old, simulate_increments, cf_increment_GL)
+% run_exercise_3 for the 3 models. The market curve, ATM volatility and
+% the forward-start window [t1 = yf(2), t2 = yf(4)] are shared; each model is
+% then priced with its own engine:
+%   MA      -> Functions_ex3/   (FA_simulation, pricing_fwd_start_analytic/_MC)
+%   AB, GL  -> UNIFIED Simulation/ engine: model_marginal_cf dispatch ->
+%              ccdf_increment_FFT -> tail_adjustment -> simulate_from_cdf ->
+%              price_fwd_start_MC. The only model-specific inputs are the
+%              marginal CF (charateristic_function_AB from ex2/, cf_GL from
+%              Calibration/) and the I_0 normalisation.
 %
-% For each model we compare the forward-start price (analytic / FFT reference)
-% against Monte Carlo. MA is checked across many strikes; AB and GL at the
-% ATM forward start (K2 = 1), where the payoff reduces to max(W, 0).
+% All three legs apply the Lemma 2 forward rescaling (Forward.pdf). We compare
+% the forward-start price (analytic / FFT reference) against Monte Carlo: MA
+% across many strikes; AB and GL at the ATM forward start (K2 = 1), where the
+% payoff reduces to max(W, 0).
 
 clear; clc; close all;
+
+% Single global RNG seed for the whole script 
+rng(1234);
 
 % =========================================================================
 % PATHS INITIALIZATION
 % =========================================================================
 addpath("Utilities/");
-addpath("Functions/");          % I0_MA, pdf_GL, complex_gamma
-addpath("Functions_ex3/");      % MA engine
-addpath("ex2/");                % calibrateAB, call_AB_FFT, I0, charateristic_function_AB
-addpath("Distributions/");      % pdf_GL, complex_gamma
-addpath("Calibration/");        % cf_GL(z,alpha,beta)  (added last -> takes precedence)
-addpath("Simulation/");         % UNIFIED AB/GL engine: ccdf_increment_FFT,
-                                % tail_adjustment, simulate_from_cdf,
-                                % plot_mc_check, price_fwd_start_MC
-
+addpath("Functions/");          
+addpath("Distributions/");      
+addpath("Calibration/");     
+addpath("Simulation/");
+addpath("Simulation/Simulation_MA/")         
 fprintf('=========================================================================\n');
 fprintf('        LINEAR ADDITIVE MODELS (MA / AB / GL) - FORWARD-START ENGINE      \n');
 fprintf('=========================================================================\n\n');
@@ -111,11 +113,10 @@ fprintf('  -> Validation complete.\n\n');
 % STEP 4 (MA): MODEL PARAMETERS SETUP
 % =========================================================================
 fprintf('STEP 4 (MA): Setting up Minimal Additive parameters...\n');
-rng(2); % For reproducibility
 
 % 1. Model Parameters definition (calibrated in Exercise 2)
-alpha_MA = 4.90;
-beta_MA  = 5.28;
+alpha_MA = 1;
+beta_MA  = 0.982156;
 gamma_MA = (1/alpha_MA) - (1/beta_MA);
 
 % 2. Relevant dates / vols on the forward-start window
@@ -123,13 +124,12 @@ yf_fwd        = [yf(iT1); yf(iT2)];
 sigma_ATM_fwd = [sigma_ATM(iT1); sigma_ATM(iT2)];
 df_fwd        = discount_factor(iT2);
 forward_fwd   = forward(iT2);
+fwd_factor_MA = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forward.pdf)
 
 % 3. Integrated Volatility computation
-% NOTE: I0_MA has signature I0_MA(gamma, C, alpha, beta) with C = (1/a+1/b)^-1
-% (see price_MA.m). The original run_exercise_3 called it with 2 args -> fixed.
 C_MA   = 1 / ((1/alpha_MA) + (1/beta_MA));
 I0     = I0_MA(alpha_MA, beta_MA);
-sigmat = (sigma_ATM_fwd / I0) .* yf_fwd;
+sigmat = (sigma_ATM_fwd / I0) .* sqrt(yf_fwd);
 
 fprintf('  -> Parameters extracted for interval [t1 = %.2f, t2 = %.2f]\n\n', yf_fwd(1), yf_fwd(2));
 
@@ -152,7 +152,7 @@ price_analytic = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df_fwd, K
 
 % Monte Carlo Pricing (vectorized)
 fprintf('  -> Running Monte Carlo Simulation (%d paths)...\n', N_sim_MA);
-[price_MC, CI_MC] = pricing_fwd_start_MC(forward_fwd, K2_vec, df_fwd, N_sim_MA, M_MA, dz_MA, sigmat, alpha_MA, beta_MA);
+[price_MC, CI_MC] = pricing_fwd_start_MC(forward_fwd, K2_vec, df_fwd, N_sim_MA, M_MA, dz_MA, sigmat, alpha_MA, beta_MA, fwd_factor_MA);
 
 % Comparison table
 diff_bps = (price_MC - price_analytic) * 10000;
@@ -213,7 +213,7 @@ fprintf('STEP 7 (AB / GL): Unified forward-start pricing...\n');
 N_sim_LA   = 1e6;
 fwd_factor = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forward.pdf)
 
-% --- model configuration (params + I_0 normalisation) ---------------------
+% model configuration (params + I_0 normalisation) 
 % AB: I_0 from I0_AB (ex2). GL: I_0 = sqrt(2*pi)*E[zeta_+] (Baviera-Massaria Eq.14)
 kAB = 0.93;  eta_AB = -0.06;
 alpha_GL = 0.44;  beta_GL = 0.40;
@@ -221,20 +221,17 @@ integrand_mean_GL = @(x) pdf_GL(alpha_GL, beta_GL, x) .* x;
 
 models(1) = struct('name', 'AB', ...
                    'params', struct('k', kAB, 'eta', eta_AB), ...
-                   'I0', I0_AB(0, kAB, eta_AB), ...
-                   'seed', 7);
+                   'I0', I0_AB(0, kAB, eta_AB));
 models(2) = struct('name', 'GL', ...
                    'params', struct('alpha', alpha_GL, 'beta', beta_GL), ...
-                   'I0', sqrt(2*pi) * quadgk(integrand_mean_GL, 0, inf), ...
-                   'seed', 42);
+                   'I0', sqrt(2*pi) * quadgk(integrand_mean_GL, 0, inf));
 
 LA_results = struct('name', {}, 'price_an', {}, 'price_mc', {}, 'IC', {});
 
 for m = 1:numel(models)
     name   = models(m).name;
     params = models(m).params;
-
-    % Scales on the forward-start window (rescale ATM vols by I_0)
+    
     sigma_t  = sigma_ATM / models(m).I0;
     sigma_T1 = sigma_t(iT1);
     sigma_T2 = sigma_t(iT2);
@@ -244,21 +241,21 @@ for m = 1:numel(models)
     std_W  = sqrt(sigma_T2^2*T2 - fwd_factor^2*sigma_T1^2*T1);
     x_grid = linspace(-12*std_W, 12*std_W, 2000)';
 
-    % --- conditional CDF t1 -> t2 (Lewis two-shift + Lemma 2) -------------
+    % conditional CDF t1 -> t2 (Lewis two-shift + Lemma 2) 
     cdf_raw        = ccdf_increment_FFT(name, params, T1, T2, sigma_T1, sigma_T2, x_grid, fwd_factor);
     [cdf_c, x_c]   = tail_adjustment(x_grid, cdf_raw, 10);
 
-    % --- simulate the increment + visual check ---------------------------
+    % simulate the increment + visual check 
     Z_inc = simulate_from_cdf(cdf_c, x_c, true, N_sim_LA);
     plot_mc_check(Z_inc, x_c, cdf_c, T1, T2);
     set(gcf, 'Name', sprintf('%s increment t1 -> t2', name));
 
-    % --- forward-start K2 = 1: MC (full path, Lemma 2) -------------------
+    % forward-start K2 = 1: MC (full path, Lemma 2)
     [price_mc, IC] = price_fwd_start_MC(name, params, T1, T2, sigma_T1, sigma_T2, ...
                         N_sim_LA, forward(iT2), discount_factor(iT1), ...
-                        discount_factor(iT2), x_grid, 1, models(m).seed);
+                        discount_factor(iT2), x_grid, 1);
 
-    % --- FFT reference: E[max(W,0)] = int_0^inf (1 - F_W) dx -------------
+    % FFT reference: E[max(W,0)] = int_0^inf (1 - F_W) dx
     F0       = interp1(x_c, cdf_c, 0, 'spline');
     mask_pos = x_c > 0;
     price_an = discount_factor(iT2) * trapz([0; x_c(mask_pos)], 1 - [F0; cdf_c(mask_pos)]);
