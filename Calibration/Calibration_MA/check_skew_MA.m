@@ -80,30 +80,27 @@ function skew_report = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
     level_mkt = nan(M, 1);
     curv_mkt  = nan(M, 1);
 
-    % store normalized smiles for the collapse plot
-    w_mkt_all   = nan(size(moneyness_modified));
+    % Invert the WHOLE surface to Bachelier IV in one vectorized call (the
+    % Newton inversion is elementwise-independent), then normalize per maturity
+    % by sigma_ATM. Dollar moneyness F-K = -chi * sigma_ATM * sqrt(t).
+    N           = size(moneyness_modified, 2);
     chi_mkt_all = moneyness_modified;
+    sT          = sigma_ATM .* sqrt(yf);                   % (M x 1)
+    fmk_all     = -moneyness_modified .* sT;               % (M x N)
+    B_all       = repmat(discount_factor, 1, N);          % (M x N)
+    t_all       = repmat(yf, 1, N);                        % (M x N)
+    valid_all   = ~isnan(moneyness_modified) & ~isnan(c_mkt_calibration) & (c_mkt_calibration > 0);
 
+    sig_imp_all          = nan(size(moneyness_modified));
+    sig_imp_all(valid_all) = bachelier_iv(c_mkt_calibration(valid_all), B_all(valid_all), ...
+                                          fmk_all(valid_all), t_all(valid_all));
+    w_mkt_all = sig_imp_all ./ sigma_ATM;                  % (M x N) normalized smile
+
+    % Local quadratic ATM fit per maturity (reads the precomputed smile).
     for i = 1:M
-        chi_i = moneyness_modified(i, :);
-        c_i   = c_mkt_calibration(i, :);
-        valid = ~isnan(chi_i) & ~isnan(c_i) & (c_i > 0);
-        if nnz(valid) < 3, continue; end
-
-        chi_v = chi_i(valid);
-        c_v   = c_i(valid);
-
-        % Dollar moneyness F-K = -chi * sigma_ATM * sqrt(t).
-        fmk = -chi_v * sigma_ATM(i) * sqrt(yf(i));
-
-        % Invert to Bachelier implied vol, then normalize by sigma_ATM.
-        sig_imp = bachelier_iv(c_v, discount_factor(i), fmk, yf(i));
-        w_v = sig_imp / sigma_ATM(i);
-
-        w_mkt_all(i, valid) = w_v;
-
-        % Local quadratic fit on the ATM window.
-        [a0, a1, a2] = local_quad_fit(chi_v, w_v, CHI_WIN);
+        v = ~isnan(chi_mkt_all(i, :)) & ~isnan(w_mkt_all(i, :));
+        if nnz(v) < 3, continue; end
+        [a0, a1, a2] = local_quad_fit(chi_mkt_all(i, v), w_mkt_all(i, v), CHI_WIN);
         level_mkt(i) = a0;
         skew_mkt(i)  = a1;
         curv_mkt(i)  = 2*a2;

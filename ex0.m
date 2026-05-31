@@ -108,6 +108,14 @@ hold on; grid on; box on;
 semilogy(x_grid, y_MA, 'LineWidth', 2, 'Color', [0 0.4470 0.7410],     'DisplayName', 'MA');
 semilogy(x_grid, y_AB, 'LineWidth', 2, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB');
 semilogy(x_grid, y_GL, 'LineWidth', 2, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'GL');
+% Reference asymptotic slope (point 0a): left tail ~ exp(+p_minus * x), a straight
+% line of slope p_minus on a semilog plot. Anchored to the AB pdf at x = -10; the
+% three model tails should run parallel to it.
+x_refL  = linspace(-30, -10, 50);
+anchorL = interp1(x_grid, y_AB, -10);
+refL    = anchorL * exp(p_minus * (x_refL + 10));
+semilogy(x_refL, refL, 'k--', 'LineWidth', 1.5, ...
+    'DisplayName', sprintf('slope p_- = %.1f', p_minus));
 title('Left Tail (Log-Scale)', 'FontSize', 14, 'FontWeight', 'bold');
 xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('Log-Density', 'FontSize', 12);
@@ -121,6 +129,14 @@ hold on; grid on; box on;
 semilogy(x_grid, y_MA, 'LineWidth', 2, 'Color', [0 0.4470 0.7410],     'DisplayName', 'MA');
 semilogy(x_grid, y_AB, 'LineWidth', 2, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB');
 semilogy(x_grid, y_GL, 'LineWidth', 2, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'GL');
+% Reference asymptotic slope (point 0a): right tail ~ exp(-p_plus * x), a straight
+% line of slope -p_plus on a semilog plot. Anchored to the AB pdf at x = +10; the
+% three model tails should run parallel to it.
+x_refR  = linspace(10, 30, 50);
+anchorR = interp1(x_grid, y_AB, 10);
+refR    = anchorR * exp(-p_plus * (x_refR - 10));
+semilogy(x_refR, refR, 'k--', 'LineWidth', 1.5, ...
+    'DisplayName', sprintf('slope -p_+ = -%.1f', p_plus));
 title('Right Tail (Log-Scale)', 'FontSize', 14, 'FontWeight', 'bold');
 xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('Log-Density', 'FontSize', 12);

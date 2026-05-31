@@ -17,9 +17,22 @@ function I = I0_AB(x, params)
 %
 % Note: the CF is evaluated with sigma_t = 1, t = 1 (scale_factor = 1), so the
 % f_t-strip coincides with the zeta-strip, p_+- = +-eta + sqrt(eta^2 + 1/k).
+%
+% The ATM evaluation I0(0) is memoized on (k, eta): price_AB and the IV
+% diagnostics call it repeatedly with the SAME parameters (dense smile grids,
+% multiple maturities), and the FFT below is deterministic in (k, eta), so a
+% one-slot cache is exact and removes the redundant 2^14 FFTs.
+
+    persistent cache_keta cache_I0
 
     k   = params(1);
     eta = params(2);
+
+    if isscalar(x) && x == 0 && ~isempty(cache_keta) && ...
+            cache_keta(1) == k && cache_keta(2) == eta
+        I = cache_I0;
+        return;
+    end
 
     dz = 0.005;
     M  = 14;
@@ -47,4 +60,9 @@ function I = I0_AB(x, params)
 
     I = interp1(zk, f_hat, x, 'spline');
     I = real(I/sqrt(2*pi));
+
+    if isscalar(x) && x == 0
+        cache_keta = [k, eta];
+        cache_I0   = I;
+    end
 end

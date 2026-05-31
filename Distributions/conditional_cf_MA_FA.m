@@ -43,18 +43,15 @@ function y = conditional_cf_MA_FA(u, params, scale_factor)
     nan_mask = isnan(y);
     inf_mask = isinf(y);
     
-    if any(nan_mask) || any(inf_mask)
-        num_nan = sum(nan_mask(:));
-        num_inf = sum(inf_mask(:));
-        
-        fprintf('\n[WARNING] Numerical instability detected in %s:\n', mfilename);
-        if num_nan > 0
-            fprintf(' -> Found %d NaN element(s) in the output.\n', num_nan);
-        end
-        if num_inf > 0
-            fprintf(' -> Found %d Inf element(s) in the output.\n', num_inf);
-        end
-        fprintf('          Check for identical boundary parameters (e.g., pt_plus == ps_plus) or extreme U grid ranges.\n\n');
+    n_bad = nnz(nan_mask) + nnz(inf_mask);
+    if n_bad > 0
+        % Use warning() (not fprintf): silenceable and non-spamming inside MC
+        % loops. Identical boundary params (e.g. pt_plus == ps_plus) or an
+        % extreme u-grid are the usual cause.
+        warning('conditional_cf_MA_FA:NumericalInstability', ...
+            ['%d non-finite value(s) (NaN: %d, Inf: %d) out of %d. ', ...
+             'Check for identical boundary parameters or extreme u-grid ranges.'], ...
+            n_bad, nnz(nan_mask), nnz(inf_mask), numel(y));
     end
-    
+
 end

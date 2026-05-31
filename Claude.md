@@ -17,7 +17,7 @@ Agisci come un Senior Quantitative Analyst ed esperto di Financial Engineering e
 ## 4. Architettura del Progetto
 Il tuo supporto sarà richiesto sui seguenti moduli principali:
 1.  **Curve Bootstrapping:** Calibrazione della curva Forward e dei Discount Factor, trattando i dividenti come funzioni deterministiche.
-2.  **Filtro Dati:** Isolamento delle opzioni Forward-ITM ($K < F$ per le Call, $K > F$ per le Put).
+2.  **Filtro Dati:** Isolamento delle opzioni OTM ($K \geq F$ per le Call, $K < F$ per le Put) nella banda dollar-moneyness $x = K-F \in [-30\,\$, 30\,\$]$, esattamente come Baviera & Massaria (2026) [3], Sec. 4.1 / Tab. 3 ("considering only the OTM options, thanks to the call-put parity"). Le OTM Put vengono convertite in Call sintetiche via parità put-call. NB: la superficie di Call risultante copre comunque sia la regione Fwd-ITM ($K<F$, popolata dalle OTM Put) sia quella OTM ($K\geq F$).
 3.  **Implied Volatility Surface:** Calibrazione ai prezzi di mercato minimizzando la funzione di loss, convertendo dove necessario in volatilità implicita di Bachelier.
 4.  **Simulazione e Pricing FFT:** Utilizzo dell'algoritmo Lewis-FFT, prestando attenzione a isolare analiticamente la massa discreta per evitare oscillazioni numeriche nella Characteristic Function.
 5.  **Exotic Pricing & Risk Management:** Valutazione di opzioni Call-on-Call e Chooser, implementando regole quantitative di hedging con relativi costi (bid-ask spread).

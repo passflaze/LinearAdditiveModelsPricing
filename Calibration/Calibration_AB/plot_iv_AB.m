@@ -32,25 +32,21 @@ function plot_iv_AB(k_AB, eta_AB, discount_factor, yf, sigma_ATM, ...
     NGRID   = 401;
 
     % ---------------------------------------------------------------------
-    % 1) MARKET: invert every maturity's quotes to Bachelier IV
+    % 1) MARKET: invert the WHOLE surface to Bachelier IV in one vectorized call
     % ---------------------------------------------------------------------
-    w_mkt_all   = nan(size(moneyness_modified));   % normalized sigma_imp/sigma_ATM
-    sig_mkt_all = nan(size(moneyness_modified));   % absolute sigma_imp
-    chi_all     = moneyness_modified;
+    N       = size(moneyness_modified, 2);
+    chi_all = moneyness_modified;
+    sT      = sigma_ATM .* sqrt(yf);                       % (M x 1)
+    fmk_all = -moneyness_modified .* sT;                   % (M x N) F - K
+    B_all   = repmat(discount_factor, 1, N);              % (M x N)
+    t_all   = repmat(yf, 1, N);                            % (M x N)
 
-    for i = 1:M
-        chi_i = moneyness_modified(i, :);
-        c_i   = c_mkt_calibration(i, :);
-        valid = ~isnan(chi_i) & ~isnan(c_i) & (c_i > 0);
-        if ~any(valid), continue; end
+    valid = ~isnan(moneyness_modified) & ~isnan(c_mkt_calibration) & (c_mkt_calibration > 0);
 
-        chi_v   = chi_i(valid);
-        fmk     = -chi_v * sigma_ATM(i) * sqrt(yf(i));    % F - K
-        sig_imp = bachelier_iv(c_i(valid), discount_factor(i), fmk, yf(i)).';
-
-        sig_mkt_all(i, valid) = sig_imp;
-        w_mkt_all(i, valid)   = sig_imp / sigma_ATM(i);
-    end
+    sig_mkt_all = nan(size(moneyness_modified));           % absolute sigma_imp
+    sig_mkt_all(valid) = bachelier_iv(c_mkt_calibration(valid), B_all(valid), ...
+                                      fmk_all(valid), t_all(valid));
+    w_mkt_all = sig_mkt_all ./ sigma_ATM;                  % (M x N) normalized (per-row)
 
     % ---------------------------------------------------------------------
     % 2) AB MODEL normalized smile on a dense chi grid (maturity-independent)
