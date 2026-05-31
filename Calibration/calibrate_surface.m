@@ -21,10 +21,12 @@ function [params, market] = calibrate_surface(opts)
 %   opts.plot        : true per plottare le distribuzioni implicite (default false)
 %
 % OUTPUT:
-%   params : struct con i parametri calibrati
-%       .AB   -> .k, .eta, .I0, .sigma_t, .sse, .exitflag
-%       .MA   -> .alpha, .beta, .sse, .exitflag, .skew_report
-%       .GL   -> .alpha, .beta, .sse, .exitflag, .M, .dz
+%   params : struct con i parametri calibrati; ogni campo e un VETTORE COLONNA
+%            secondo la convenzione params(1)/params(2) usata in tutto il
+%            progetto (cf_*, pdf_*, price_*, lewis_FFT_*).
+%       .AB   -> [k;     eta ]
+%       .MA   -> [alpha; beta]
+%       .GL   -> [alpha; beta]
 %   market : struct con i dati di mercato e di supporto (vettori colonna)
 %       .strikes, .calls, .puts, .expiries, .valueDate
 %       .discount_factor, .forward, .R2
@@ -34,7 +36,9 @@ function [params, market] = calibrate_surface(opts)
 % Esempio:
 %   p = calibrate_surface();                 % default, con report
 %   o.verbose = false; p = calibrate_surface(o);  % silenzioso
-
+addpath("Calibration/Calibration_MA/");
+addpath("Calibration/Calibration_AB/");
+addpath("Calibration/Calibration_GL/");
 % =========================================================================
 % INPUT HANDLING / DEFAULTS
 % =========================================================================
@@ -157,8 +161,8 @@ obj_fun_AB = @(x) objective_function_AB(x, discount_factor, yf, sigma_ATM, ...
 
 k_AB   = x_opt_AB(1);
 eta_AB = x_opt_AB(2);
-I_0 = I0_AB(0, k_AB, eta_AB); % I0 is the scale factor for the AB model, used to recover sigma_t from sigma_ATM via sigma_t = sigma_ATM / I_0.
-sigma_t = sigma_ATM / I_0;
+% Note: the AB scale factor I0 (sigma_t = sigma_ATM / I0_AB(0,k,eta)) is not
+% returned here -- downstream code recomputes it from [k; eta] when needed.
 
 vb('\n  -> Optimal parameters found: k = %.6f, eta = %.6f.\n', k_AB, eta_AB);
 vb('  -> AB Calibration completed (exitflag = %d, SSE = %.6g).\n\n', ...
@@ -208,7 +212,9 @@ vb('  -> Fixed scale: alpha = %.6f (gauge); calibrated beta = %.6f.\n', ...
 vb('  -> Asymmetry ratio beta/alpha = %.6f.\n\n', beta_MA/alpha_MA);
 
 % --- MA calibration check via implied-vol SKEW -----------------------------
-skew_report_MA = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
+% Called for its (verbose) side-effect report; the struct is no longer packed
+% into the vector-valued output.
+check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
     sigma_ATM, moneyness_modified, c_mkt_calibration, expiries);
 
 % Re-define nonlcon for GL (2-D) -- it does not have the MA scale invariance.
@@ -246,22 +252,28 @@ if opts.verbose
 end
 
 %% =========================================================================
-% STEP 6: PLOTTING IMPLIED DISTRIBUTIONS (optional)
+% STEP 6: PLOTTING IMPLIED DISTRIBUTIONS / VOL SMILE (optional)
 % =========================================================================
 if opts.plot
     plot_distributions(eta_AB, k_AB, alpha_MA, beta_MA, alpha_GL, beta_GL);
+    % AB Bachelier implied-volatility smile: calibrated model vs market.
+    plot_iv_AB(k_AB, eta_AB, discount_factor, yf, sigma_ATM, ...
+               moneyness_modified, c_mkt_calibration, expiries);
 end
 
 % =========================================================================
 % PACK OUTPUTS
 % =========================================================================
+% Each model's parameters are returned as a *column vector*, consistent with
+% the params(1)/params(2) convention used throughout the project (cf_*, pdf_*,
+% price_*, lewis_FFT_*). Layout:
+%   params.AB = [k;     eta ]
+%   params.MA = [alpha; beta]
+%   params.GL = [alpha; beta]
 params = struct();
-params.AB = struct('k', k_AB, 'eta', eta_AB, 'I0', I_0, 'sigma_t', sigma_t, ...
-                   'sse', fval_AB, 'exitflag', exitflag_AB);
-params.MA = struct('alpha', alpha_MA, 'beta', beta_MA, 'sse', fval_MA, ...
-                   'exitflag', exitflag_MA, 'skew_report', skew_report_MA);
-params.GL = struct('alpha', alpha_GL, 'beta', beta_GL, 'sse', fval_GL, ...
-                   'exitflag', exitflag_GL, 'M', M, 'dz', dz);
+params.AB = [k_AB;     eta_AB ];
+params.MA = [alpha_MA; beta_MA];
+params.GL = [alpha_GL; beta_GL];
 
 if nargout > 1
     market = struct();

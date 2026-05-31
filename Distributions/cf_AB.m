@@ -16,9 +16,9 @@ function phi = cf_AB(u, params, scale_factor)
 %
 % INPUTS:
 %   u            - (vector) Fourier argument (real-valued evaluation points)
-%   params       - (1x2 vector) Model parameters:
-%                    params(1) = eta   : drift parameter (eta_s)
-%                    params(2) = kappa : mean-reversion / tempering parameter (k_s)
+%   params       - (2x1 vector) Model parameters, project-wide [k; eta]:
+%                    params(1) = k   : mean-reversion / tempering parameter (k_s)
+%                    params(2) = eta : drift parameter (eta_s)
 %   scale_factor - (scalar) Composite scaling factor sigma_s * sqrt(s),
 %                    where sigma_s is the volatility and s is the time horizon
 %
@@ -26,12 +26,12 @@ function phi = cf_AB(u, params, scale_factor)
 %   phi          - (vector, same size as u) Values of the characteristic
 %                    function evaluated at u
 
-    % Model parameters
-    eta   = params(1);   
-    kappa = params(2);  
+    % Model parameters (project-wide convention [k; eta])
+    k   = params(1);
+    eta = params(2);
 
     % Laplace exponent (alpha = 0.5)
-    psi = @(z) (1./kappa) .* (1 - sqrt(1 + 2.*z.*kappa));
+    psi = @(z) (1./k) .* (1 - sqrt(1 + 2.*z.*k));
 
     z_arg = 1i .* u .* (eta .* scale_factor) + 0.5 .* (scale_factor .* u).^2;
 

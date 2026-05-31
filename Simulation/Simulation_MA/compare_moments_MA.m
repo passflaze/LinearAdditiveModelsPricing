@@ -12,8 +12,8 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params)
     % =========================================================================
     % STEP 1: INTERNAL PARAMETER COMPUTATION
     % =========================================================================
-    alpha_MA = params.alpha; 
-    beta_MA = params.beta;
+    alpha_MA = params(1);
+    beta_MA = params(2);
     gamma_MA = (1/alpha_MA) - (1/beta_MA);
     
     % Tail decay parameters using scale_factor

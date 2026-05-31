@@ -7,7 +7,7 @@ function cf_inc = cf_increment_AB(u, params, scale_factor)
 %
 % INPUTS:
 %   u            - (vector) Fourier argument
-%   params       - [eta, kappa] model parameters passed to cf_AB
+%   params       - [k; eta] model parameters passed to cf_AB
 %   scale_factor - [sigma_t1*sqrt(t1), sigma_t2*sqrt(t2)] scaling factors
 %
 % OUTPUT:

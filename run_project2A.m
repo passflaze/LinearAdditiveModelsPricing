@@ -20,7 +20,7 @@
 %                                  ex2 (nessuna ri-calibrazione, nessun
 %                                  parametro hardcoded).
 %
-%  I parametri calibrati passano da ex2 a ex3 tramite le struct `params` e
+%  I parametri calibrati passano da ex2 a ex3 tramite i vettori `params` e
 %  `market`.
 %  =========================================================================
 
@@ -30,10 +30,11 @@ clear; clc; close all;
 % PATHS INITIALIZATION
 % =========================================================================
 addpath("Utilities/");
-addpath("ex2/");
-addpath("Calibration/");
 addpath("Distributions/");
-addpath("Functions/");
+addpath("Calibration/");
+addpath("Calibration/Calibration_AB/");
+addpath("Calibration/Calibration_MA/");
+addpath("Calibration/Calibration_GL/");
 addpath("Simulation/");
 addpath("Simulation/Simulation_MA/");
 
@@ -50,7 +51,8 @@ ex0;
 %  calibrate_surface svolge prima l'Esercizio 1 (bootstrap della curva
 %  Forward e dei Discount Factor) e poi l'Esercizio 2 (calibrazione della
 %  superficie di volatilita). Restituisce:
-%    params : parametri calibrati  (params.AB / params.MA / params.GL)
+%    params : parametri calibrati come vettori colonna
+%             (params.AB = [k;eta], params.MA = [alpha;beta], params.GL = [alpha;beta])
 %    market : dati di mercato e supporto (forward, discount_factor,
 %             sigma_ATM, yf, expiries, ...)
 opts            = struct();

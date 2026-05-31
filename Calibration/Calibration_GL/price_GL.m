@@ -39,7 +39,7 @@ function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_AT
     % =========================================================================
     % STEP 0: NORMALIZATION CONSTANT
     % =========================================================================
-    I0 = I0_GL(alpha, beta);
+    I0 = I0_GL([alpha; beta]);
     if isnan(I0) || isinf(I0) || I0 == 0
         error('PricingEngine:I0_Invalid', ...
               'I0 evaluated to an unphysical value (I0 = %f).', I0);

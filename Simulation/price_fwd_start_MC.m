@@ -2,8 +2,7 @@ function [price, IC, diag] = price_fwd_start_MC(model, params, T1, T2, ...
         sigma_T1, sigma_T2, Nsim, forward, B_0_t1, B_0_t2, x_grid, strike)
 % PRICE_FWD_START_MC  Monte Carlo price of the forward-start option
 %   payoff = [ S(T2) - strike * F(T1,T2) ]_+
-% under a Linear Additive model ('AB' or 'GL'). Model-agnostic generalisation
-% of ex3_utilities/price_AB_MC.
+% under a Linear Additive model ('AB' or 'GL'). Model-agnostic.
 %
 % Strategy (exploits additivity x_T2 = x_T1 + (x_T2 - x_T1), independent
 % increments) and the Lemma 2 forward rescaling (Forward.pdf):
@@ -18,7 +17,7 @@ function [price, IC, diag] = price_fwd_start_MC(model, params, T1, T2, ...
 %
 % INPUTS
 %   model            : 'AB' or 'GL'
-%   params           : model parameter struct (see model_marginal_cf)
+%   params           : model parameter column vector (see model_marginal_cf)
 %   T1, T2           : reset and maturity (year fractions)
 %   sigma_T1,sigma_T2: calibrated scales at T1, T2 (= sigma_ATM/I_0)
 %   Nsim             : number of MC paths

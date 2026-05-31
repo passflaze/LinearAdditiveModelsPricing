@@ -17,7 +17,7 @@ zk = z1 + dz * j;
 xk = x1 + dx * j;
 
 if nargin < 4 || isempty(I_0)
-    I_0 = I0(0,k,eta);
+    I_0 = I0_AB(0, [k; eta]);
 end
 
 % Lewis contour: sigma_t = 1/I_0 inside the CF, so the f_t-strip is
@@ -28,10 +28,8 @@ end
 p_plus = eta + sqrt(eta^2 + 1/k);
 a = -min(0.45 * p_plus * I_0, 0.5);
 
-phi = charateristic_function_AB(1,k,eta,1/I_0);
-
-% vectorised CF call: phi(...) returns column N x 1; reshape to row for FFT
-phi_vals = phi(xk + 1i*a);
+% cf_AB with scale_factor = (1/I_0)*sqrt(1) = 1/I_0; params = [k; eta].
+phi_vals = cf_AB(xk + 1i*a, [k; eta], 1/I_0);
 phi_vals = phi_vals(:).';
 fj = phi_vals ./ (1i*xk - a).^2 .* exp(-1i * z1 * dx .* j);
 % Lewis prefactor e^{x a}: function of the OUTPUT moneyness grid zk

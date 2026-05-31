@@ -8,9 +8,10 @@ function [phi, c_neg, c_pos] = model_marginal_cf(model, params, T, sigma_T)
 %
 % INPUTS
 %   model    : 'AB' (Additive Bachelier) or 'GL' (Generalized Logistic)
-%   params   : struct with the model parameters
-%                AB -> params.k , params.eta
-%                GL -> params.alpha , params.beta
+%   params   : column vector with the model parameters (project-wide
+%              params(1)/params(2) convention)
+%                AB -> [k; eta]
+%                GL -> [alpha; beta]
 %   T        : maturity / reset date (year fraction). T = 0 -> degenerate CF = 1.
 %   sigma_T  : calibrated scale at T (= sigma_ATM(T)/I_0).
 %
@@ -22,20 +23,21 @@ function [phi, c_neg, c_pos] = model_marginal_cf(model, params, T, sigma_T)
 %   c_pos    : strip half-decay controlling the POSITIVE contour shift a_pos
 %              (left-tail accuracy).  Admissible shift = c_pos/(sigma_T*sqrt(T)).
 %
-% References: AB strip p_+- = -+eta + sqrt(eta^2 + 1/k) (ex2/I0_AB, Baviera-
-% Manzoni 2026 Sec.5.3). GL strip u in (-alpha/sT, beta/sT) (ex3_GL/lewis_fft_cdf).
+% References: AB strip p_+- = -+eta + sqrt(eta^2 + 1/k) (Baviera-Manzoni 2026
+% Sec.5.3). GL strip u in (-alpha/sT, beta/sT).
 
     switch upper(model)
         case 'AB'
-            k   = params.k;
-            eta = params.eta;
-            phi = charateristic_function_AB(T, k, eta, sigma_T);   % returns @(u) col
+            k   = params(1);
+            eta = params(2);
+            % cf_AB uses scale_factor = sigma_T*sqrt(T); pass the [k; eta] vector.
+            phi = @(u) cf_AB(u, params, sigma_T * sqrt(T));
             c_neg = eta + sqrt(eta^2 + 1/k);    % p_+  -> a_neg
             c_pos = -eta + sqrt(eta^2 + 1/k);   % p_-  -> a_pos
 
         case 'GL'
-            alpha = params.alpha;
-            beta  = params.beta;
+            alpha = params(1);
+            beta  = params(2);
             sT    = sigma_T * sqrt(T);
             % cf_GL signature (Distributions/cf_GL.m): cf_GL(u, [alpha,beta], scale)
             % -> pass the param VECTOR and let cf_GL apply the scale internally

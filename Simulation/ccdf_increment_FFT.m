@@ -4,7 +4,7 @@ function cdf = ccdf_increment_FFT(model, params, T1, T2, sigma_T1, sigma_T2, x, 
 % via Lewis-FFT. Model-agnostic: works for 'AB' and 'GL' (the only model
 % dependence is the marginal CF / strip returned by model_marginal_cf).
 %
-% Generalises ex3_utilities/ccdf_AB_FFT (best CDF stage):
+% Model-agnostic two-shift CDF reconstruction:
 %   * two-shift reconstruction (Baviera-Manzoni 2026, Sec.5.3): the CDF is
 %     built twice -- once shifting the contour on the NEGATIVE side of the
 %     analyticity strip (accurate on the RIGHT tail) and once on the POSITIVE
@@ -18,7 +18,7 @@ function cdf = ccdf_increment_FFT(model, params, T1, T2, sigma_T1, sigma_T2, x, 
 %
 % INPUTS
 %   model      : 'AB' or 'GL'
-%   params     : model parameter struct (see model_marginal_cf)
+%   params     : model parameter column vector (see model_marginal_cf)
 %   T1, T2     : reset and maturity (year fractions). T1 = 0 -> marginal CDF.
 %   sigma_T1   : scale at T1 (pass 0 if T1 == 0).
 %   sigma_T2   : scale at T2.

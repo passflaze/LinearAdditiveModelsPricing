@@ -21,7 +21,7 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
     % =========================================================================
     % Evaluate MA density using dedicated function from Distributions folder
     % Note: sigmat=1 (no time-scaling in this visualization context)
-    y_MA = pdf_MA(alpha_MA, beta_MA, 1, x_grid);
+    y_MA = pdf_MA([alpha_MA; beta_MA], 1, x_grid);
 
     % =========================================================================
     % 3. Additive Bachelier Distribution (AB via NIG Model)
@@ -44,7 +44,7 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
     % 4. Generalized Logistic Distribution (GL)
     % =========================================================================
     % Evaluate GL density using dedicated function from Distributions folder
-    y_GL = pdf_GL(alpha_GL, beta_GL, x_grid);
+    y_GL = pdf_GL([alpha_GL; beta_GL], x_grid);
 
     % =========================================================================
     % 5. Benchmark: Standard Normal Distribution

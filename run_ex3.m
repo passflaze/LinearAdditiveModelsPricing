@@ -20,8 +20,8 @@ function LA_results = run_ex3(params, market)
 %   AB, GL  -> UNIFIED Simulation/ engine: model_marginal_cf dispatch ->
 %              ccdf_increment_FFT -> tail_adjustment -> simulate_from_cdf ->
 %              price_fwd_start_MC. The only model-specific inputs are the
-%              marginal CF (charateristic_function_AB from ex2/, cf_GL from
-%              Calibration/) and the I_0 normalisation.
+%              marginal CF (cf_AB / cf_GL from Distributions/) and the I_0
+%              normalisation.
 %
 % All three legs apply the Lemma 2 forward rescaling (Forward.pdf). We compare
 % the forward-start price (analytic / FFT reference) against Monte Carlo: MA
@@ -35,10 +35,11 @@ function LA_results = run_ex3(params, market)
 % PATHS INITIALIZATION
 % =========================================================================
 addpath("Utilities/");
-addpath("Functions/");
 addpath("Distributions/");
 addpath("Calibration/");
-addpath("ex2/");
+addpath("Calibration/Calibration_AB/");
+addpath("Calibration/Calibration_MA/");
+addpath("Calibration/Calibration_GL/");
 addpath("Simulation/");
 addpath("Simulation/Simulation_MA/")
 
@@ -106,9 +107,9 @@ fprintf('  -> Validation complete.\n\n');
 % =========================================================================
 fprintf('STEP 4 (MA): Setting up Minimal Additive parameters...\n');
 
-% 1. Model Parameters (calibrated in Exercise 2 -> params.MA)
-alpha_MA = params.MA.alpha;
-beta_MA  = params.MA.beta;
+% 1. Model Parameters (calibrated in Exercise 2 -> params.MA = [alpha; beta])
+alpha_MA = params.MA(1);
+beta_MA  = params.MA(2);
 gamma_MA = (1/alpha_MA) - (1/beta_MA);
 fprintf('  -> MA: alpha = %.6f, beta = %.6f (from ex2 calibration)\n', alpha_MA, beta_MA);
 
@@ -214,17 +215,19 @@ fwd_factor = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forward.p
 % model configuration (params + I_0 normalisation)
 % AB: I_0 from I0_AB (ex2). GL: I_0 = sqrt(2*pi)*E[zeta_+] (Baviera-Massaria Eq.14)
 % Parameters calibrated in Exercise 2 -> params.AB / params.GL
-kAB = params.AB.k;  eta_AB = params.AB.eta;
-alpha_GL = params.GL.alpha;  beta_GL = params.GL.beta;
+kAB = params.AB(1);  eta_AB = params.AB(2);
+alpha_GL = params.GL(1);  beta_GL = params.GL(2);
 fprintf('  -> AB: k = %.6f, eta = %.6f | GL: alpha = %.6f, beta = %.6f (from ex2)\n', ...
         kAB, eta_AB, alpha_GL, beta_GL);
-integrand_mean_GL = @(x) pdf_GL(alpha_GL, beta_GL, x) .* x;
+integrand_mean_GL = @(x) pdf_GL([alpha_GL; beta_GL], x) .* x;
 
+% params is a column vector per the project-wide convention:
+%   AB -> [k; eta] , GL -> [alpha; beta]   (see model_marginal_cf)
 models(1) = struct('name', 'AB', ...
-                   'params', struct('k', kAB, 'eta', eta_AB), ...
-                   'I0', I0_AB(0, kAB, eta_AB));
+                   'params', [kAB; eta_AB], ...
+                   'I0', I0_AB(0, [kAB; eta_AB]));
 models(2) = struct('name', 'GL', ...
-                   'params', struct('alpha', alpha_GL, 'beta', beta_GL), ...
+                   'params', [alpha_GL; beta_GL], ...
                    'I0', sqrt(2*pi) * quadgk(integrand_mean_GL, 0, inf));
 
 LA_results = struct('name', {}, 'price_an', {}, 'price_mc', {}, 'IC', {});

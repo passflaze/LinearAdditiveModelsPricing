@@ -7,8 +7,8 @@ function cdf = cdf_AB_increments(eta, k, T1, T2, sigma_T1, sigma_T2, x, fwd_fact
     % strip (accurate on the LEFT tail) and once on the positive side
     % (accurate on the RIGHT tail), then glues the two at the median (x = 0).
     %
-    % sigma_T1, sigma_T2 = entries of sigma_t from calibrateAB (sigmaATM/I_0).
-    %   [~, ~, sigma_t, ~] = calibrateAB(...);
+    % sigma_T1, sigma_T2 = entries of sigma_t (= sigma_ATM / I_0) from the
+    % calibration (calibrate_surface). Example:
     %   cdf = cdf_AB_increments(eta, k, T1, T2, sigma_t(iT1), sigma_t(iT2), x);
     %
     % x: column vector of log-price increment points where to evaluate the CDF.
@@ -22,11 +22,12 @@ function cdf = cdf_AB_increments(eta, k, T1, T2, sigma_T1, sigma_T2, x, fwd_fact
         fwd_factor = 1;
     end
 
-    phi_T2   = charateristic_function_AB(T2, k, eta, sigma_T2);
+    % cf_AB uses scale_factor = sigma*sqrt(T); params = [k; eta].
+    phi_T2   = @(u) cf_AB(u, [k; eta], sigma_T2 * sqrt(T2));
     if T1 == 0
         phi_cond = phi_T2;
     else
-        phi_T1   = charateristic_function_AB(T1, k, eta, sigma_T1);
+        phi_T1   = @(u) cf_AB(u, [k; eta], sigma_T1 * sqrt(T1));
         phi_cond = @(u) phi_T2(u) ./ phi_T1(fwd_factor * u);
     end
 
@@ -81,13 +82,13 @@ function cdf = cdf_AB_increments(eta, k, T1, T2, sigma_T1, sigma_T2, x, fwd_fact
     % Glue with a SMOOTH blend, not a hard switch at x = 0.
     % A brusque switch leaves a downward step at the median: the raw CDF is no
     % longer monotone, so trapz(1-cdf) (FFT reference) and the cummax-cleaned
-    % CDF used by sample_from_cdf integrate different functions -> the MC
+    % CDF used by simulate_from_cdf integrate different functions -> the MC
     % forward-start price drifts ~10% above the FFT reference.
     % Both reconstructions are accurate everywhere except their own far tail,
     % so a wide tanh blend (scale ~ a fraction of the x-range) suppresses each
     % side's oscillation by averaging where both are good, and recovers the
     % accurate tail far from 0 (w->1 right, w->0 left). The result is C^1 and
-    % monotone, so cummax in sample_from_cdf becomes a no-op.
+    % monotone, so cummax in simulate_from_cdf becomes a no-op.
     scale = (max(x) - min(x)) / 20;          % gentle transition (~1 std)
     w     = 0.5 * (1 + tanh(x / scale));     % 0 for x<<0, 1 for x>>0
     cdf   = (1 - w) .* cdf_left + w .* cdf_right;

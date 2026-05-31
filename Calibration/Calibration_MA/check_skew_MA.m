@@ -240,37 +240,3 @@ function [a0, a1, a2] = local_quad_fit(chi, w, chi_win)
     coef = X \ w(m);
     a0 = coef(1); a1 = coef(2); a2 = coef(3);
 end
-
-function sigma = bachelier_iv(C, B, fwdMinusK, t)
-% Invert the (discounted) Bachelier call for the implied vol via Newton.
-%   C = B*[ (F-K)*Phi(d) + v*phi(d) ],   d = (F-K)/v,   v = sigma*sqrt(t).
-% Monotone & smooth in v; vega dC/dv = B*phi(d). Vectorized over inputs.
-    C = C(:); fwdMinusK = fwdMinusK(:);
-    n = numel(C);
-    sigma = nan(n, 1);
-
-    % ATM-style starting guess: at F=K, C = B*v/sqrt(2*pi) => v0 = C/B*sqrt(2pi).
-    v = max(C / B * sqrt(2*pi), 1e-8);
-
-    for it = 1:100
-        d   = fwdMinusK ./ v;
-        Phi = 0.5 * erfc(-d / sqrt(2));
-        phi = exp(-0.5 * d.^2) / sqrt(2*pi);
-        f   = B * (fwdMinusK .* Phi + v .* phi) - C;   % residual
-        vega = B * phi;                                % dC/dv
-        vega(vega < 1e-14) = 1e-14;                    % guard flat regions
-        step = f ./ vega;
-        v = v - step;
-        v = max(v, 1e-10);                             % keep positive
-        if max(abs(step)) < 1e-12, break; end
-    end
-
-    % Discard non-converged / degenerate inversions.
-    d   = fwdMinusK ./ v;
-    Phi = 0.5 * erfc(-d / sqrt(2));
-    phi = exp(-0.5 * d.^2) / sqrt(2*pi);
-    resid = B * (fwdMinusK .* Phi + v .* phi) - C;
-    ok = abs(resid) < 1e-6 * max(C, 1e-8);
-
-    sigma(ok) = v(ok) / sqrt(t);
-end

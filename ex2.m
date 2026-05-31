@@ -15,9 +15,11 @@ clear; clc; close all;
 % PATHS INITIALIZATION
 % =========================================================================
 addpath("Utilities/");
-addpath("Calibration/");
-addpath("ex2/");
 addpath("Distributions/");
+addpath("Calibration/");
+addpath("Calibration/Calibration_AB/");
+addpath("Calibration/Calibration_MA/");
+addpath("Calibration/Calibration_GL/");
 
 % Run the full calibration (verbose report + implied-distribution plot).
 opts = struct();
@@ -27,9 +29,9 @@ opts.plot      = true;
 
 [params, market] = calibrate_surface(opts);
 
-% Calibrated parameters are now available in `params`:
-%   params.AB.k, params.AB.eta, params.AB.sigma_t, ...
-%   params.MA.alpha, params.MA.beta, ...
-%   params.GL.alpha, params.GL.beta, ...
+% Calibrated parameters are now available in `params` as column vectors:
+%   params.AB = [k;     eta ]
+%   params.MA = [alpha; beta]
+%   params.GL = [alpha; beta]
 % and the market/support data (forward, discount_factor, sigma_ATM, yf, ...)
 % in `market`.

@@ -12,7 +12,7 @@ x_grid = linspace(-30, 30, 500);
 
 %% 2. MA PDF (Asymmetric Laplace)
 % sigma*sqrt(t) = 1 for unit-time evaluation
-y_MA = pdf_MA(p_minus, p_plus, 1, x_grid);
+y_MA = pdf_MA([p_minus; p_plus], 1, x_grid);
 
 %% 3. AB PDF (NIG representation)
 kappa_AB = 1 / (p_plus * p_minus);
@@ -31,7 +31,7 @@ delta_nig = sqrt(lam_IG1);
 y_AB = pdf_NIG(x_grid, alpha_nig, beta_nig, mu_nig, delta_nig);
 
 %% 4. GL PDF (Generalized Logistic)
-y_GL = pdf_GL(p_minus, p_plus, x_grid);
+y_GL = pdf_GL([p_minus; p_plus], x_grid);
 
 %% AB Monte Carlo Simulation vs Analytical PDF
 numSim = 1e6;
