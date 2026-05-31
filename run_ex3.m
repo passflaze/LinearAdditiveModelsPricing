@@ -193,6 +193,11 @@ if ~isempty(idx_atm)
     fprintf('  -> Integration Error          : %.2f bps\n\n', diff_bps_integration);
 end
 
+%% =========================================================================
+% STEP 7 (MA): MOMENTS CHECK
+% =========================================================================
+compare_moments_MA(N_sim_MA, M_MA, dz_MA, sigmat, params.MA)
+
 %% #########################################################################
 %  MODELS 2 & 3 - ADDITIVE BACHELIER (AB) + GENERALIZED LOGISTIC (GL)
 %  Unified Simulation/ engine. Both models share the EXACT same pipeline:
