@@ -1,4 +1,4 @@
-function y = cf_MA_FA(u, params, scale_factor)
+function cf_inc = cf_MA_FA(u, params, scale_factor)
 % CF_MA_FA Computes the characteristic function of the Finite Activity (FA)
 % increment under the Minimal Additive (MA) model.
 %
@@ -38,7 +38,21 @@ function y = cf_MA_FA(u, params, scale_factor)
     % 3. Deterministic drift phase shift
     phase_shift = exp(1i * deltamu .* u);
     
+    
     % 4. Final CF assembly
-    y = c .* (numerator ./ denominator) .* phase_shift;
+    cf_inc = c .* (numerator ./ denominator) .* phase_shift;
+
+    nan_mask = isnan(cf_inc) | isinf(cf_inc);
+    n_bad    = nnz(nan_mask);
+
+    if n_bad > 0
+        n_nan = nnz(isnan(cf_inc));
+        n_inf = nnz(isinf(cf_inc));
+        warning('cf_increment_AB:NumericalInstability', ...
+            '%d non-finite values in incremental CF (NaN: %d, Inf: %d) out of %d. Set to 0.', ...
+            n_bad, n_nan, n_inf, numel(cf_inc));
+    end
+
+    cf_inc(nan_mask) = 0;
     
 end

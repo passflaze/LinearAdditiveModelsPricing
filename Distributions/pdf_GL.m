@@ -1,8 +1,9 @@
-function y = pdf_GL(alpha, beta, x)
+function y = pdf_GL(params, x)
 % PDF_GL_FINAL Computes the Generalized Logistic PDF safely for vectors 
 % and heavy-tails using log-space computation to prevent overflow.
 
     % 1. Location parameter (Difference of Digamma functions)
+    alpha = params(1); beta = params(2);
     gamma_GL = psi(beta) - psi(alpha); 
     
     % 2. Logarithm of the normalizing Gamma/Beta factor

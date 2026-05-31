@@ -1,19 +1,22 @@
-function pdf_val = pdf_MA(alpha, beta, sigmat, x)
+function pdf_val = pdf_MA(params, scale_factor, x)
 % PDF_MA Computes the Probability Density Function (PDF) of the Minimal Additive
 % stochastic increment at given point(s) x.
 %
 % Inputs:
 %   alpha  - Left tail decay parameter (> 0)
 %   beta   - Right tail decay parameter (> 0)
-%   sigmat - Integrated volatility (sigma * sqrt(t))
+%   scale_factor - Integrated volatility (sigma * sqrt(t))
 %   x      - Evaluation point(s) for the density (scalar or array)
 %
 % Output:
 %   pdf_val - Evaluated density at x
 
     % 1. Calculate the scaled tail decay parameters
-    pt_plus  = beta / sigmat;
-    pt_minus = alpha / sigmat;
+    alpha = params(1);
+    beta = params(2);
+    scale_factor = max(scale_factor);
+    pt_plus  = beta / scale_factor;
+    pt_minus = alpha / scale_factor;
 
     % 2. Calculate normalization constant A
     % A = (1/pt_plus + 1/pt_minus)^(-1)
@@ -21,7 +24,7 @@ function pdf_val = pdf_MA(alpha, beta, sigmat, x)
 
     % 3. Calculate the shift (deltamu)
     gamma_MA = (1 / alpha) - (1 / beta);
-    deltamu = gamma_MA * sigmat;
+    deltamu = gamma_MA * scale_factor;
 
     % 4. Initialize output array to match the size of x
     pdf_val = zeros(size(x));
