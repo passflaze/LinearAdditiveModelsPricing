@@ -1,0 +1,265 @@
+function LA_results = run_ex4(params, market)
+%RUN_EX4 Computes prices for Call-on-Call, Put-on-Put, and Chooser options 
+%        using Linear Additive Models (GL, MA, AB) and performs sanity checks.
+
+addpath("Utilities/");
+addpath("Distributions/");
+addpath(genpath('Pricing/'));
+addpath(genpath('Simulation/'));
+addpath(genpath('Calibration/'));
+
+% Standalone mode: if no calibrated inputs are passed, calibrate first.
+if nargin < 2
+    [params, market] = calibrate_surface(struct('verbose', false));
+end
+
+fprintf('=========================================================================\n');
+fprintf('        LINEAR ADDITIVE MODELS (MA / AB / GL) - FORWARD-START ENGINE      \n');
+fprintf('=========================================================================\n\n');
+
+%% =========================================================================
+% STEP 1-2: UNPACK MARKET DATA AND CALIBRATED PARAMETERS
+% =========================================================================
+fprintf('STEP 1-2: Using pre-calibrated curve, ATM vol and model parameters...\n');
+
+% Market / support data 
+strikes         = market.strikes;
+calls           = market.calls;
+puts            = market.puts;
+expiries        = market.expiries;
+discount_factor = market.discount_factor;
+forward         = market.forward;
+sigma_ATM       = market.sigma_ATM;
+yf              = market.yf;
+nT              = numel(expiries);
+
+fprintf('  -> Market data and ATM volatility loaded for %d maturities.\n\n', nT);
+
+% Shared forward-start window: t1 = yf(iT1), t2 = yf(iT2)
+iT1 = 2;  iT2 = 4;
+T1  = yf(iT1);  T2 = yf(iT2);
+fprintf('  Forward-start window: t1 = %.4f y (idx %d), t2 = %.4f y (idx %d)\n\n', T1, iT1, T2, iT2);
+
+%% =========================================================================
+%  COMMON PARAMETERS (shared across all models)
+%% =========================================================================
+M      = 16;
+dz     = 5e-3;
+N_sim  = 1e7;
+N_grid = 300;
+
+% Maturities: t1 = expiries(iT1), t2 = expiries(iT2)
+F_t0_t2 = forward(iT2);
+K2      = F_t0_t2;          % ATM strike for vanilla call
+K1      = 1;                % compound option strike
+df      = [discount_factor(iT1), discount_factor(iT2)];
+
+% Discount factor at t2 (used by ATM-call sanity checks below)
+B_0_t2  = discount_factor(iT2);
+
+% Sanity-check enabling flag: the Chooser closed-form decomposition into
+% two ATM-forward calls is valid ONLY when K2 = F(t0,T2).
+chooser_sanity_enabled = (K2 == F_t0_t2);
+
+%% =========================================================================
+%  GL MODEL
+%% =========================================================================
+params_GL        = params.GL; % Dynamically loaded from input params struct
+I0_opt_GL        = I0_GL(params_GL);
+sigma_t_GL       = sigma_ATM / I0_opt_GL;
+scale_factor_GL  = [sigma_t_GL(iT1)*sqrt(yf(iT1)), sigma_t_GL(iT2)*sqrt(yf(iT2))];
+
+rng(1234);
+% Call-on-Call
+[price_GL, CI_GL, ft1_GL, call_price_t1_GL] = CoC_pricing_MC( ...
+    params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'GL');
+
+% Put-on-Put (NEW)
+[price_PoP_GL, CI_PoP_GL, ft1_PoP_GL, put_price_t1_GL] = PoP_pricing_MC( ...
+    params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'GL');
+
+% Chooser
+[price_Ch_GL, CI_Ch_GL, ft1_Ch_GL, call_price_Ch_t1_GL] = Chooser_pricing_MC( ...
+    params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'GL');
+
+% Sanity check CoC: with K1 = 0 must collapse to a vanilla ATM call at T2
+rng(1234);
+[price_CoC_K1zero_GL, ~] = CoC_pricing_MC( ...
+    params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, 0, K2, df, 'GL');
+[price_ATM_GL] = call_ATM_vanilla(params_GL, scale_factor_GL(2), B_0_t2, 'GL');
+
+% Chooser analytic (only valid for ATM strike K2 = F(t0,T2)):
+% Chooser_ATM = ATM-call(T2) + ATM-call(T1), both discounted at B(0,T2).
+if chooser_sanity_enabled
+    [call_ATM_T2_GL] = call_ATM_vanilla(params_GL, scale_factor_GL(2), B_0_t2, 'GL');
+    [call_ATM_T1_GL] = call_ATM_vanilla(params_GL, scale_factor_GL(1), B_0_t2, 'GL');
+    price_Ch_GL_analytic    = call_ATM_T2_GL + call_ATM_T1_GL;
+else
+    price_Ch_GL_analytic = NaN;
+end
+
+%% =========================================================================
+%  MA MODEL
+%% =========================================================================
+params_MA        = params.MA; % Dynamically loaded from input params struct
+I0_opt_MA        = I0_MA(params_MA);
+sigma_t_MA       = sigma_ATM / I0_opt_MA;
+scale_factor_MA  = [sigma_t_MA(iT1)*sqrt(yf(iT1)), sigma_t_MA(iT2)*sqrt(yf(iT2))];
+
+rng(1234);
+% Call-on-Call MC
+[price_CoC_MA_MC, CI_MA, ft1_MA, call_price_t1_MA] = CoC_pricing_MC( ...
+    params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA');
+
+% Call-on-Call Analytical
+price_CoC_MA_analytic = CoC_pricing_analytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
+
+% Put-on-Put (NEW)
+[price_PoP_MA_MC, CI_PoP_MA, ft1_PoP_MA, put_price_t1_MA] = PoP_pricing_MC( ...
+    params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA');
+
+% Chooser
+[price_Ch_MA_MC, CI_Ch_MA, ft1_Ch_MA, call_price_Ch_t1_MA] = Chooser_pricing_MC( ...
+    params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'MA');
+
+% Chooser Analytical (MA has a closed-form pricer valid for any K2)
+price_Ch_MA_analytic = Chooser_pricing_analytic(params_MA, scale_factor_MA, df, F_t0_t2, K2);
+
+% Comparison FFT vs analytical call prices on increments and marginals
+K_eval = linspace(-10, 10, 20);
+fprintf('\n>>> 1. FINITE ACTIVITY INCREMENT (Delta f)\n');
+fprintf('Comparing analytical formula vs FFT Lewis inversion...\n');
+comparison_function_increments_MA(params_MA, scale_factor_MA, df, M, dz, K_eval, F_t0_t2);
+
+fprintf('\n>>> 2. INFINITE ACTIVITY MARGINAL (f_t)\n');
+fprintf('Comparing analytical formula vs FFT Lewis inversion...\n');
+comparison_function_marginals_MA(params_MA, scale_factor_MA, df, M, dz, K_eval);
+
+%% =========================================================================
+%  AB MODEL
+%% =========================================================================
+params_AB        = params.AB; % Dynamically loaded from input params struct
+I0_opt_AB        = I0_AB(0, params_AB);
+sigma_t_AB       = sigma_ATM / I0_opt_AB;
+scale_factor_AB  = [sigma_t_AB(iT1)*sqrt(yf(iT1)), sigma_t_AB(iT2)*sqrt(yf(iT2))];
+
+rng(1234);
+% Call-on-Call
+[price_AB, CI_AB, ft1_AB, call_price_t1_AB] = CoC_pricing_MC( ...
+    params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'AB');
+
+% Put-on-Put (NEW)
+[price_PoP_AB, CI_PoP_AB, ft1_PoP_AB, put_price_t1_AB] = PoP_pricing_MC( ...
+    params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'AB');
+
+% Chooser
+[price_Ch_AB, CI_Ch_AB, ft1_Ch_AB, call_price_Ch_t1_AB] = Chooser_pricing_MC( ...
+    params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'AB');
+
+% Sanity check CoC: with K1 = 0 must collapse to a vanilla ATM call at T2
+rng(1234);
+[price_CoC_K1zero_AB, ~] = CoC_pricing_MC( ...
+    params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, 0, K2, df, 'AB');
+[price_ATM_AB] = call_ATM_vanilla(params_AB, scale_factor_AB(2), B_0_t2, 'AB');
+
+% Chooser analytic (only valid for ATM strike K2 = F(t0,T2)):
+if chooser_sanity_enabled
+    [call_ATM_T2_AB] = call_ATM_vanilla(params_AB, scale_factor_AB(2), B_0_t2, 'AB');
+    [call_ATM_T1_AB] = call_ATM_vanilla(params_AB, scale_factor_AB(1), B_0_t2, 'AB');
+    price_Ch_AB_analytic    = call_ATM_T2_AB + call_ATM_T1_AB;
+else
+    price_Ch_AB_analytic = NaN;
+end
+
+%% =========================================================================
+%  RESULTS TABLE — PRICES
+%% =========================================================================
+models = {'GL'; 'MA'; 'AB'};
+
+% --- Call-on-Call Data ---
+prices_CoC_MC       = [price_GL; price_CoC_MA_MC; price_AB];
+prices_CoC_Analytic = [NaN;      price_CoC_MA_analytic; NaN];
+IC_CoC              = [CI_GL;    CI_MA;           CI_AB];
+CI_CoC_str          = compose('[%.4f, %.4f]', IC_CoC(:,1), IC_CoC(:,2));
+
+% --- Put-on-Put Data ---
+prices_PoP_MC       = [price_PoP_GL; price_PoP_MA_MC; price_PoP_AB];
+IC_PoP              = [CI_PoP_GL;    CI_PoP_MA;       CI_PoP_AB];
+CI_PoP_str          = compose('[%.4f, %.4f]', IC_PoP(:,1), IC_PoP(:,2));
+
+% --- Chooser Data ---
+prices_Ch_MC       = [price_Ch_GL;          price_Ch_MA_MC;       price_Ch_AB];
+prices_Ch_Analytic = [price_Ch_GL_analytic; price_Ch_MA_analytic; price_Ch_AB_analytic];
+IC_Ch              = [CI_Ch_GL;             CI_Ch_MA;             CI_Ch_AB];
+CI_Ch_str          = compose('[%.4f, %.4f]', IC_Ch(:,1), IC_Ch(:,2));
+
+% --- Create and Display Table ---
+T = table(models, prices_CoC_MC, prices_CoC_Analytic, CI_CoC_str, ...
+                  prices_PoP_MC, CI_PoP_str, ...
+                  prices_Ch_MC, prices_Ch_Analytic, CI_Ch_str, ...
+    'VariableNames', {'Model', 'CoC_MC', 'CoC_Analytic', 'CoC_95_CI', ...
+                      'PoP_MC', 'PoP_95_CI', ...
+                      'Chooser_MC', 'Chooser_Analytic', 'Chooser_95_CI'});
+disp(' ');
+disp('=============================================================================================');
+disp('                                      PRICING RESULTS                                        ');
+disp('=============================================================================================');
+disp(T);
+
+%% =========================================================================
+%  SANITY CHECKS SUMMARY 
+%
+%  Test 1: CoC with K1 = 0 must collapse to a vanilla ATM-forward call at T2.
+%          Reference: call_ATM_vanilla at T2.
+%          Valid for any K2 (the K1=0 collapse does not require ATM strike).
+%
+%  Test 2: Chooser = ATM-call(T2) + ATM-call(T1).
+%          Reference: sum of two call_ATM_vanilla evaluations.
+%          Valid ONLY when K2 = F(t0,T2) (ATM). Outside this case the
+%          closed-form does not hold and the check is skipped.
+%
+%  MA is excluded from these checks: it has its own closed-form analytic
+%  pricer already validated against MC in the table above.
+%% =========================================================================
+err_CoC_GL = abs(price_CoC_K1zero_GL - price_ATM_GL) / price_ATM_GL;
+err_CoC_AB = abs(price_CoC_K1zero_AB - price_ATM_AB) / price_ATM_AB;
+
+if chooser_sanity_enabled
+    err_Ch_GL = abs(price_Ch_GL - price_Ch_GL_analytic) / price_Ch_GL_analytic;
+    err_Ch_AB = abs(price_Ch_AB - price_Ch_AB_analytic) / price_Ch_AB_analytic;
+else
+    err_Ch_GL = NaN;
+    err_Ch_AB = NaN;
+end
+
+sanity_models = {'GL'; 'AB'};
+sanity_CoC_MC = [price_CoC_K1zero_GL; price_CoC_K1zero_AB];
+sanity_CoC_Analytic = [price_ATM_GL;        price_ATM_AB];
+sanity_CoC_Er = [err_CoC_GL;          err_CoC_AB];
+sanity_Ch_MC  = [price_Ch_GL;         price_Ch_AB];
+sanity_Ch_Analytic  = [price_Ch_GL_analytic;    price_Ch_AB_analytic];
+sanity_Ch_Er  = [err_Ch_GL;           err_Ch_AB];
+
+S = table(sanity_models, sanity_CoC_MC, sanity_CoC_Analytic, sanity_CoC_Er, ...
+                         sanity_Ch_MC,  sanity_Ch_Analytic,  sanity_Ch_Er, ...
+    'VariableNames', {'Model', ...
+                      'CoC_K1zero_MC', 'CoC_VanillaATM_Analytic', 'CoC_RelErr', ...
+                      'Chooser_MC',    'Chooser_SR_Analytic',     'Chooser_RelErr'});
+
+disp(' ');
+disp('=============================================================================================');
+disp('                                       SANITY CHECKS                                         ');
+disp('  CoC: K1=0 collapse vs vanilla ATM call at T2   (always valid)                              ');
+if chooser_sanity_enabled
+    disp('  Chooser: ATM-call(T2) + ATM-call(T1) vs MC      (valid because K2 = F(t0,T2))              ');
+else
+    disp('  Chooser: skipped (closed-form requires K2 = F(t0,T2), current K2 differs).                 ');
+end
+disp('=============================================================================================');
+disp(S);
+
+% Pack both tables into the output structure
+LA_results.Pricing = T;
+LA_results.SanityChecks = S;
+
+end

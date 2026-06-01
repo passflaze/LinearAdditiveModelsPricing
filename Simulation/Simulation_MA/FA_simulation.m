@@ -1,4 +1,4 @@
-function increments = FA_simulation(N_sim, M, dz, shift_pos,shift_neg, delta_mu, pt_plus, pt_minus, ps_plus, ps_minus,spline,activity,doubleshift)
+function increments = FA_simulation(N_sim, M, dz, delta_mu, pt_plus, pt_minus, ps_plus, ps_minus,spline,activity,doubleshift, params, scale_factor, z_grid_std)
 %SIMULATE_FA_INCREMENT Command center for simulating Finite Activity MA jumps.
 %   INCREMENTS = SIMULATE_FA_INCREMENT(N_SIM, M, DX, SHIFT, DELTA_MU, ...)
 %   orchestrates the full simulation of an increment for a Minimal Additive 
@@ -22,6 +22,7 @@ function increments = FA_simulation(N_sim, M, dz, shift_pos,shift_neg, delta_mu,
 %       increments - An [N_sim x 1] vector of the simulated process increments
 %
 %   See also: POINTMASSCALCULATOR, SIMULATE_FROM_CDF
+
 
    if strcmp(activity, 'finite')
         % =========================================================================
@@ -55,16 +56,15 @@ function increments = FA_simulation(N_sim, M, dz, shift_pos,shift_neg, delta_mu,
         % Only trigger the heavy FFT machinery if at least one path jumped
         if N_jumps > 0
             % Call the simulation engine ONLY for the required number of paths
-            [cdf_clean, x_grid_fine] = lewis_fft_algorithm_digital(@cf_FA_MA,M, dz, shift_pos,shift_neg, pt_plus, pt_minus, ps_plus, ps_minus,1,'finite',doubleshift);
+            [cdf_clean, x_grid_fine] = lewis_FFT_digital(@conditional_cf_MA_FA,M, dz, params,scale_factor, 1,'MA',doubleshift);
             simulated_jumps = simulate_from_cdf(cdf_clean, x_grid_fine,spline,N_jumps);
-            
             % Inject the simulated jumps back into the corresponding active paths
             jump_component(jump_mask) = simulated_jumps;
         end
         increments = jump_component + delta_mu;
         % NOTE: Paths where jump_mask == 0 naturally remain exactly 0 here.
    else 
-        [cdf_clean, x_grid_fine] = lewis_fft_algorithm_digital(@cf_IA_MA,M, dz, shift_pos,shift_neg, pt_plus, pt_minus, ps_plus, ps_minus,1,'infinite',doubleshift);
+        [cdf_clean, x_grid_fine] = lewis_FFT_digital(@cf_MA_IA,M, dz, params,scale_factor, 1,'MA',doubleshift);
         increments = simulate_from_cdf(cdf_clean, x_grid_fine,spline,N_sim);
         
    end

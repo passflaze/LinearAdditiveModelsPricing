@@ -159,8 +159,8 @@ obj_fun_AB = @(x) objective_function_AB(x, discount_factor, yf, sigma_ATM, ...
 [x_opt_AB, fval_AB, exitflag_AB] = ...
     fmincon(obj_fun_AB, x0_AB, [], [], [], [], lb_AB, ub_AB, [], options_AB);
 
-k_AB   = x_opt_AB(1);
-eta_AB = x_opt_AB(2);
+eta_AB   = x_opt_AB(2);
+k_AB = x_opt_AB(1);
 % Note: the AB scale factor I0 (sigma_t = sigma_ATM / I0_AB(0,k,eta)) is not
 % returned here -- downstream code recomputes it from [k; eta] when needed.
 
@@ -271,7 +271,7 @@ end
 %   params.MA = [alpha; beta]
 %   params.GL = [alpha; beta]
 params = struct();
-params.AB = [k_AB;     eta_AB ];
+params.AB = [eta_AB;     k_AB ];
 params.MA = [alpha_MA; beta_MA];
 params.GL = [alpha_GL; beta_GL];
 
