@@ -25,10 +25,6 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params)
     
     % Drift vector calculation (from t1 to t2)
     drift_t1_t2 = gamma_MA * (scale_factor(2) - scale_factor(1));
-    
-    % FFT Damping shifts (using half of the poles bounds)
-    shift_pos_2 =  pt_minus / 2;
-    shift_neg_2 = -pt_plus  / 2;
 
     % =========================================================================
     % STEP 2: MONTE CARLO SIMULATION & EMPIRICAL MOMENTS
@@ -39,8 +35,12 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params)
     
     fprintf('Running Monte Carlo simulation with %d paths...\n', N_sim);
     tic;
-    ft1t2 = FA_simulation(N_sim, M, dz, shift_pos_2, shift_neg_2, drift_t1_t2, ...
-                          pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1);
+    % Finite-activity increment [t1 -> t2]: the 2-vector scale_factor
+    % [sigma_t1; sigma_t2] is required so conditional_cf_MA_FA gets both tails.
+    % params = [alpha; beta]; delta_mu = drift_t1_t2 is added in the finite branch.
+    ft1t2 = FA_simulation(N_sim, M, dz, drift_t1_t2, ...
+                          pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1, ...
+                          params(:), scale_factor(:), []);
     time_MC = toc;
     
     % Empirical Moments (Corrected: Mean, Variance, Skewness, Kurtosis)

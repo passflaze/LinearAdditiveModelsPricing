@@ -38,6 +38,10 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % =========================================================================
     % 1.1 Asymmetry factor
     gamma_MA = (1/alpha_MA) - (1/beta_MA);
+
+    % Model parameters as a column vector [alpha; beta] for the unified engine
+    % (lewis_FFT_digital / conditional_cf_MA_FA / cf_MA_IA).
+    params = [alpha_MA; beta_MA];
    
     % 1.4 Tail decay parameters for t1 (s) and t2 (t)
     % We strictly extract indices 2 and 3 to avoid division by zero at t=0.
@@ -88,16 +92,24 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % =========================================================================
     % Base process evaluated at time t1 -> 'infinite' activity.
     % Subtracted tail parameters are 0 because it starts from 0.
-    ft0t1 = FA_simulationOLD(N_sim, M, dz, shift_pos_1, shift_neg_1, drift_0_t1, ...
-                          ps_plus, ps_minus, 0, 0, 1, 'infinite', 1); 
+    % Unified engine: 'infinite' leg uses the SCALAR scale sigmat(1) (=t1),
+    % since cf_MA_IA collapses scale_factors internally. delta_mu is ignored
+    % here (the drift is already baked into cf_MA_IA).
+    ft0t1 = FA_simulation(N_sim, M, dz, drift_0_t1, ...
+                          ps_plus, ps_minus, 0, 0, 1, 'infinite', 1, ...
+                          params, sigmat(1), []);
 
     % =========================================================================
     % STEP 3: SIMULATE THE INCREMENT [t1 to t2]
     % =========================================================================
     % MA increment process -> 'finite' activity.
     % We pass both the target parameters (pt) and the subtracted parameters (ps).
-    ft1t2 = FA_simulationOLD(N_sim, M, dz, shift_pos_2, shift_neg_2, drift_t1_t2, ...
-                          pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1);
+    % Unified engine: 'finite' increment leg uses the 2-VECTOR scale
+    % [sigmat(1); sigmat(2)] so conditional_cf_MA_FA gets both s=t1 and t=t2
+    % tails. delta_mu = drift_t1_t2 IS added back in this branch.
+    ft1t2 = FA_simulation(N_sim, M, dz, drift_t1_t2, ...
+                          pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1, ...
+                          params, [sigmat(1); sigmat(2)], []);
 
     % =========================================================================
     % STEP 4: ASSEMBLE PATHS & PAYOFF

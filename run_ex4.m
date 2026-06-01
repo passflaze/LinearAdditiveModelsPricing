@@ -14,7 +14,7 @@ if nargin < 2
 end
 
 fprintf('=========================================================================\n');
-fprintf('        LINEAR ADDITIVE MODELS (MA / AB / GL) - FORWARD-START ENGINE      \n');
+fprintf('        LINEAR ADDITIVE MODELS (MA / AB / GL) - EXOTIC PRICE ENGINE      \n');
 fprintf('=========================================================================\n\n');
 
 %% =========================================================================

@@ -28,6 +28,12 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
         doplot = false;
     end
 
+    % Use the largest scale ONLY for the damping shift. The CF itself must
+    % receive the full scale_factors argument untouched: single-time CFs
+    % (cf_MA_IA, cf_GL, cf_AB) collapse it internally, but the two-time MA
+    % finite-activity increment CF (conditional_cf_MA_FA) genuinely needs
+    % both scale_factors(1)=sigma_s and scale_factors(2)=sigma_t. Collapsing
+    % to max() here silently destroyed the s-leg and broke forward-start MC.
     scale_factor = max(scale_factors);
     % --- FFT grid setup ---
     N  = 2^M;
@@ -69,7 +75,7 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
     preprefactor_pos = -exp(shift_pos * z_grid) / (2*pi);
 
     x_grid_shifted_pos   = x_grid + 1i * shift_pos;
-    fourier_function_pos = cf(x_grid_shifted_pos, params, scale_factor) ./ ...
+    fourier_function_pos = cf(x_grid_shifted_pos, params, scale_factors) ./ ...
                            (1i * x_grid_shifted_pos);
     input_fft_pos        = fourier_function_pos .* exp(-1i * z1 * dx * j_minus_1);
 
@@ -83,7 +89,7 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
         preprefactor_neg = -exp(shift_neg * z_grid) / (2*pi);
 
         x_grid_shifted_neg   = x_grid + 1i * shift_neg;
-        fourier_function_neg = cf(x_grid_shifted_neg, params, scale_factor) ./ ...
+        fourier_function_neg = cf(x_grid_shifted_neg, params, scale_factors) ./ ...
                                (1i * x_grid_shifted_neg);
         input_fft_neg        = fourier_function_neg .* exp(-1i * z1 * dx * j_minus_1);
 
