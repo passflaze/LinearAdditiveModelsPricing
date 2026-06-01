@@ -1,4 +1,4 @@
-function cf_inc = cf_MA_FA(u, params, scale_factor)
+function cf_inc = cf_MA_FA(u, params, scale_factor, fwd_factor)
 % CF_MA_FA Computes the characteristic function of the Finite Activity (FA)
 % increment under the Minimal Additive (MA) model.
 %
@@ -23,18 +23,25 @@ function cf_inc = cf_MA_FA(u, params, scale_factor)
 %       y        : Evaluated characteristic function at u
 
 
+    % Lemma-2 forward rescaling: the t1 (s-date) marginal enters as phi_s(fwd*u),
+    % i.e. u -> fwd_factor*u in every s-date factor. fwd_factor = B(0,T1)/B(0,T2);
+    % default 1 (no rescaling) reproduces the plain marginal ratio phi_t/phi_s.
+    if nargin < 4 || isempty(fwd_factor)
+        fwd_factor = 1;
+    end
+
     ps_plus = params(2)/scale_factor(1); ps_minus = params(1)/scale_factor(1);
     pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
     gamma_MA = (1 / params(1)) - (1 /params(2));
-    deltamu = gamma_MA * (scale_factor(2) - scale_factor(1));
+    deltamu = gamma_MA * (scale_factor(2) - fwd_factor * scale_factor(1));
 
     % 1. Point mass probability 'c' (ratio of normalizing constants)
     c = (pt_plus * pt_minus) / (ps_plus * ps_minus);
-    
-    % 2. Complex rational fraction (numerator from s, denominator from t)
-    numerator   = (ps_plus - 1i * u) .* (ps_minus + 1i * u);
+
+    % 2. Complex rational fraction (numerator from s with u -> fwd*u, denom from t)
+    numerator   = (ps_plus - 1i * fwd_factor * u) .* (ps_minus + 1i * fwd_factor * u);
     denominator = (pt_plus - 1i * u) .* (pt_minus + 1i * u);
-    
+
     % 3. Deterministic drift phase shift
     phase_shift = exp(1i * deltamu .* u);
     

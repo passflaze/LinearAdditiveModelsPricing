@@ -1,4 +1,4 @@
-function increments = FA_simulation(N_sim, M, dz, shift_pos,shift_neg, delta_mu, pt_plus, pt_minus, ps_plus, ps_minus,spline,activity,doubleshift)
+function increments = FA_simulationOLD(N_sim, M, dz, shift_pos,shift_neg, delta_mu, pt_plus, pt_minus, ps_plus, ps_minus,spline,activity,doubleshift)
 %SIMULATE_FA_INCREMENT Command center for simulating Finite Activity MA jumps.
 %   INCREMENTS = SIMULATE_FA_INCREMENT(N_SIM, M, DX, SHIFT, DELTA_MU, ...)
 %   orchestrates the full simulation of an increment for a Minimal Additive 

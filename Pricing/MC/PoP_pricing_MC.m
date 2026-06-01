@@ -46,8 +46,8 @@ function [price, CI, ft1, put_price_t1] = PoP_pricing_MC(params, scale_factor, N
             ft1        = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);
 
         case 'AB'
-            % params(1) = eta, params(2) = kappa
-            % std_T1     = scale_factor(1) * sqrt(1 + params(1)^2 * params(2));
+            % params(1) = k (kappa), params(2) = eta
+            % std_T1     = scale_factor(1) * sqrt(1 + params(2)^2 * params(1));
             % z_grid_std = linspace(-8 * std_T1, 8 * std_T1, N_grid)';
             [cdf_fT1, z_grid]    = lewis_FFT_digital(@cf_AB, M, dz, params, ...
                              scale_factor(1), 1, 'AB', 1);

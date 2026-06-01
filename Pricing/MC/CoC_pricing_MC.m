@@ -60,7 +60,7 @@ function [price, CI, ft1, call_price_t1] = CoC_pricing_MC(params, scale_factor, 
             ft1 = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);
 
         case 'AB'
-            % params(1) = eta, params(2) = kappa
+            % params(1) = k (kappa), params(2) = eta
             [cdf_fT1, z_grid] = lewis_FFT_digital(@cf_AB, M, dz, params, ...
                                     scale_factor(1), 1, 'AB', 1);
             fprintf('        z_grid: [%.4f, %.4f]  (%d points)\n', z_grid(1), z_grid(end), numel(z_grid));

@@ -88,7 +88,7 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % =========================================================================
     % Base process evaluated at time t1 -> 'infinite' activity.
     % Subtracted tail parameters are 0 because it starts from 0.
-    ft0t1 = FA_simulation(N_sim, M, dz, shift_pos_1, shift_neg_1, drift_0_t1, ...
+    ft0t1 = FA_simulationOLD(N_sim, M, dz, shift_pos_1, shift_neg_1, drift_0_t1, ...
                           ps_plus, ps_minus, 0, 0, 1, 'infinite', 1); 
 
     % =========================================================================
@@ -96,7 +96,7 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % =========================================================================
     % MA increment process -> 'finite' activity.
     % We pass both the target parameters (pt) and the subtracted parameters (ps).
-    ft1t2 = FA_simulation(N_sim, M, dz, shift_pos_2, shift_neg_2, drift_t1_t2, ...
+    ft1t2 = FA_simulationOLD(N_sim, M, dz, shift_pos_2, shift_neg_2, drift_t1_t2, ...
                           pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1);
 
     % =========================================================================

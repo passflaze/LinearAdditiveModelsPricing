@@ -271,7 +271,7 @@ end
 %   params.MA = [alpha; beta]
 %   params.GL = [alpha; beta]
 params = struct();
-params.AB = [eta_AB;     k_AB ];
+params.AB = [k_AB;     eta_AB ];
 params.MA = [alpha_MA; beta_MA];
 params.GL = [alpha_GL; beta_GL];
 

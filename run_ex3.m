@@ -275,17 +275,46 @@ for m = 1:numel(models)
 end
 
 %% =========================================================================
+% STEP 8: UNIFORM FORWARD-START via lewis_FFT_call (all 3 models, K2 = 1)
+% =========================================================================
+fprintf('STEP 8: Uniform forward-start via lewis_FFT_call (AB/GL/MA)...\n');
+M_lewis  = 16;
+dz_lewis = 0.05;
+fwd_LA   = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 forward factor
+% Use the per-model parameter scalars already extracted above (the loop above
+% reassigns the local `params` to each model's vector, so params.* is gone).
+par_AB = [kAB; eta_AB];  par_GL = [alpha_GL; beta_GL]; 
+uspec = {'AB', par_AB, @(u,p,sc) cf_increment_AB(u,p,sc,fwd_LA), I0_AB(0, par_AB); ...
+         'GL', par_GL, @(u,p,sc) cf_increment_GL(u,p,sc,fwd_LA), I0_GL(par_GL);    ...
+         'MA', par_MA, @(u,p,sc) cf_MA_FA(u,p,sc,fwd_LA),        I0_MA(par_MA)};
+price_uniform = zeros(3, 1);
+for i = 1:3
+    nm = uspec{i,1}; par = uspec{i,2}; cfi = uspec{i,3}; I0u = uspec{i,4};
+    scu = [(sigma_ATM(iT1)/I0u) * sqrt(T1), (sigma_ATM(iT2)/I0u) * sqrt(T2)];
+    % z = 0 (ATM increment call); doubleshift = true for tail accuracy.
+    price_uniform(i) = discount_factor(iT2) * ...
+        lewis_FFT_call(cfi, M_lewis, dz_lewis, par, scu, 0, true, nm);
+    fprintf('  -> %s : %.6f\n', nm, price_uniform(i));
+end
+fprintf('\n');
+
+%% =========================================================================
 % FINAL SUMMARY (K2 = 1)
 % =========================================================================
 fprintf('=========================================================================\n');
 fprintf('              FORWARD-START SUMMARY AT K2 = 1 (ATM)                       \n');
 fprintf('=========================================================================\n');
+fprintf('%-6s | %-12s | %-12s | %-14s\n', 'Model', 'analytic', 'MC', 'uniform(Lewis)');
+fprintf('-------------------------------------------------------------------------\n');
 if ~isempty(idx_atm)
-    fprintf('  MA : analytic %.6f | MC %.6f\n', price_analytic(idx_atm), price_MC(idx_atm));
+    fprintf('%-6s | %-12.6f | %-12.6f | %-14.6f\n', 'MA', ...
+        price_analytic(idx_atm), price_MC(idx_atm), price_uniform(3));
 end
 for m = 1:numel(LA_results)
-    fprintf('  %s : analytic %.6f | MC %.6f\n', ...
-            LA_results(m).name, LA_results(m).price_an, LA_results(m).price_mc);
+    iu = find(strcmp({'AB','GL','MA'}, LA_results(m).name));
+    fprintf('%-6s | %-12.6f | %-12.6f | %-14.6f\n', ...
+            LA_results(m).name, LA_results(m).price_an, LA_results(m).price_mc, ...
+            price_uniform(iu));
 end
 fprintf('=========================================================================\n');
 fprintf('                 SIMULATION COMPLETED SUCCESSFULLY.                       \n');

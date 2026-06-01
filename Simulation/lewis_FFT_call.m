@@ -41,9 +41,9 @@ function price = lewis_FFT_call(cf, M, dz, params, scalefactor, strikes, doubles
             shift_neg = -0.5* params(2) / scalefactor(2);
 
         case 'AB'
-            % params(1) = eta, params(2) = kappa
-            eta   = params(1);
-            kappa = params(2);
+            % params(1) = k (kappa), params(2) = eta
+            kappa = params(1);
+            eta   = params(2);
             shift_pos =  0.5 * (-eta + sqrt(eta^2 + 1/kappa)) / scalefactor(2);
             shift_neg = -0.5 * (eta + sqrt(eta^2 + 1/kappa)) / scalefactor(2);
     end
@@ -71,15 +71,21 @@ function price = lewis_FFT_call(cf, M, dz, params, scalefactor, strikes, doubles
 
         price_clean_pos = -z_grid + preprefactor_pos .* real(prefactor .* fft(input_fft_pos));
 
-        % Sigmoid blend in the transition region [-1, 1]
+        % Sigmoid blend in the transition region [-1, 1].
+        % The positive shift (a>0, Ra=-z) is accurate on the LEFT (z<0, ITM
+        % call); the negative shift (a<0, Ra=0) is accurate on the RIGHT (z>0,
+        % OTM call). The blend weight w = sigmoid(5z) goes 0 -> 1 with z, so the
+        % POS branch must carry weight (1-w) and the NEG branch weight w (same
+        % convention as lewis_FFT_digital / ccdf_increment_FFT). Carrying w on
+        % the pos branch (as before) inverted the blend and left kinks at z=+-1.
         price_grid              = zeros(size(z_grid));
         price_grid(z_grid < -1) = price_clean_pos(z_grid < -1);
         price_grid(z_grid >  1) = price_clean_neg(z_grid >  1);
 
         idx_blend             = (z_grid >= -1) & (z_grid <= 1);
-        exp_term              = 1 ./ (1 + exp(-5 * z_grid(idx_blend)));
-        price_grid(idx_blend) = exp_term       .* price_clean_pos(idx_blend) + ...
-                                (1 - exp_term) .* price_clean_neg(idx_blend);
+        w                     = 1 ./ (1 + exp(-5 * z_grid(idx_blend)));
+        price_grid(idx_blend) = (1 - w) .* price_clean_pos(idx_blend) + ...
+                                      w  .* price_clean_neg(idx_blend);
     else
         price_grid = price_clean_neg;
     end

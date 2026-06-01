@@ -28,7 +28,7 @@ function [price] = call_ATM_vanilla(params, scale_factor_T, discount_factor_T, m
 %   params              - (1x2) model parameters, same convention as in
 %                         CoC_pricing_MC:
 %                           * 'GL': [alpha, beta]
-%                           * 'AB': [eta,   kappa]
+%                           * 'AB': [k,     eta]
 %   scale_factor_T      - (scalar) sigma_t(T) * sqrt(T) at the call maturity.
 %                         Must be the SAME normalized scale used inside
 %                         CoC_pricing_MC and Chooser_pricing_MC.
