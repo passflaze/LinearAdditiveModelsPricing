@@ -1,4 +1,4 @@
-function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA, fwd_factor)
+function [price, CI] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA, fwd_factor)
 % PRICING_FWD_START_MC Computes the Monte Carlo price of a Forward Start Option.
 %
 %   This function completely encapsulates the Minimal Additive (MA) structural
@@ -43,18 +43,27 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % (lewis_FFT_digital / conditional_cf_MA_FA / cf_MA_IA).
     params = [alpha_MA; beta_MA];
    
-    % 1.4 Tail decay parameters for t1 (s) and t2 (t)
-    % We strictly extract indices 2 and 3 to avoid division by zero at t=0.
-    ps_plus  = beta_MA  / sigmat(1);
-    ps_minus = alpha_MA / sigmat(1);
-    
+    % 1.4 Tail decay parameters for t1 (s) and t2 (t).
+    % Lemma 2 (Forward.pdf): the t1->t2 increment belongs to the SAME-expiry
+    % forward F(.,T2), whose reset value is f_{T1,T2} = fwd_factor*f_{T1,T1}.
+    % Hence the SUBTRACTED (s = t1) leg of the increment carries the rescaled
+    % scale sigma_s = fwd_factor*sigmat(1), i.e. poles ps_+- = a,b/sigma_s (the
+    % original poles divided by fwd_factor). This mirrors phi_t1(fwd_factor*u)
+    % in cf_increment_AB/GL. The 0->t1 base leg below keeps the TRUE marginal
+    % scale sigmat(1), since it samples f_{T1,T1} directly.
+    sigmat_s = fwd_factor * sigmat(1);
+
+    ps_plus  = beta_MA  / sigmat_s;
+    ps_minus = alpha_MA / sigmat_s;
+
     pt_plus  = beta_MA  / sigmat(2);
     pt_minus = alpha_MA / sigmat(2);
-    
+
     % 1.5 Drift vector calculation
-    % drift(1): from 0 to t1. drift(2): from t1 to t2.
+    % drift(1): 0 -> t1 base leg, TRUE marginal scale sigmat(1).
+    % drift(2): t1 -> t2 increment, Lemma-2 rescaled s leg (sigma_s).
     drift_0_t1  = gamma_MA * (sigmat(1) - 0);
-    drift_t1_t2 = gamma_MA * (sigmat(2) - sigmat(1));
+    drift_t1_t2 = gamma_MA * (sigmat(2) - sigmat_s);
     
     % 1.6 FFT Damping shifts (using half of the poles bounds)
     shift_pos_1 =  ps_minus / 2;
@@ -109,7 +118,7 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % tails. delta_mu = drift_t1_t2 IS added back in this branch.
     ft1t2 = FA_simulation(N_sim, M, dz, drift_t1_t2, ...
                           pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1, ...
-                          params, [sigmat(1); sigmat(2)], []);
+                          params, [sigmat_s; sigmat(2)], []);
 
     % =========================================================================
     % STEP 4: ASSEMBLE PATHS & PAYOFF
@@ -118,9 +127,12 @@ function [price, CI] = pricing_fwd_start_MC(forward, K, df, N_sim, M, dz, sigmat
     % f_{T1,T2} = fwd_factor * f_{T1,T1}, hence F(T1,T2) = forward + fwd_factor*ft0t1.
     F_T1_T2 = forward + fwd_factor * ft0t1; % Size: (N_sim, 1)
 
-    % St2 = forward + f_{T2,T2} = forward + f_{T1,T1} + (f_{T2,T2}-f_{T1,T1}).
-    % Note ft0t1 enters with coefficient 1 here (diagonal spot), NOT fwd_factor.
-    St2 = forward + ft0t1 + ft1t2;     % Size: (N_sim, 1)
+    % St2 = forward + f_{T2,T2}, with f_{T2,T2} = f_{T1,T2} + (f_{T2,T2}-f_{T1,T2})
+    %                                   = fwd_factor*f_{T1,T1} + W   (Lemma 2).
+    % ft0t1 therefore enters with coefficient fwd_factor (the reset instantaneous
+    % forward is f_{T1,T2}, NOT f_{T1,T1}), matching the AB/GL branch
+    % S_T2 = forward + fwd_factor*Z1 + W in pricing_fwd_start_MC.
+    St2 = forward + fwd_factor * ft0t1 + ft1t2;     % Size: (N_sim, 1)
 
     % Ensure K is a row vector for implicit expansion
     K = K(:)'; % Size: (1, N_K)

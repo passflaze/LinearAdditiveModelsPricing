@@ -15,13 +15,13 @@ function LA_results = run_ex3(params, market)
 %
 % Se chiamata senza argomenti, esegue prima calibrate_surface (modalita
 % standalone). La forward-start window [t1 = yf(2), t2 = yf(4)] e condivisa;
-% ogni modello e poi prezzato con il proprio engine:
-%   MA      -> Functions/   (FA_simulation, pricing_fwd_start_analytic/_MC)
-%   AB, GL  -> UNIFIED Simulation/ engine: model_marginal_cf dispatch ->
-%              ccdf_increment_FFT -> tail_adjustment -> simulate_from_cdf ->
-%              price_fwd_start_MC. The only model-specific inputs are the
-%              marginal CF (cf_AB / cf_GL from Distributions/) and the I_0
-%              normalisation.
+% ogni modello e poi prezzato con il singolo engine UNIFICATO
+% pricing_fwd_start_MC (switch su 'MA' | 'AB' | 'GL'):
+%   MA      -> delega a pricing_fwd_start_MA_MC (FA_simulation: IA base +
+%              FA increment).
+%   AB, GL  -> CDF di entrambe le leg via lewis_FFT_digital sulla CF increment
+%              Lemma-2 (cf_increment_AB / cf_increment_GL) -> simulate_from_cdf.
+%              Gli unici input model-specific sono i parametri + la I_0.
 %
 % All three legs apply the Lemma 2 forward rescaling (Forward.pdf). We compare
 % the forward-start price (analytic / FFT reference) against Monte Carlo: MA
@@ -42,6 +42,7 @@ addpath("Calibration/Calibration_MA/");
 addpath("Calibration/Calibration_GL/");
 addpath("Simulation/");
 addpath("Simulation/Simulation_MA/")
+addpath(genpath("Pricing/"));   % Pricing/Analytic (fwd-start AB/GL/MA) + Pricing/MC
 
 % Single RNG seed for reproducibility
 rng(1234);
@@ -118,10 +119,9 @@ yf_fwd        = [yf(iT1); yf(iT2)];
 sigma_ATM_fwd = [sigma_ATM(iT1); sigma_ATM(iT2)];
 df_fwd        = discount_factor(iT2);
 forward_fwd   = forward(iT2);
-fwd_factor_MA = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forward.pdf)
+fwd_factor    = discount_factor(iT1) / discount_factor(iT2);  % Lemma 2 (Forward.pdf) forward rescaling
 
 % 3. Integrated Volatility computation
-C_MA   = 1 / ((1/alpha_MA) + (1/beta_MA));
 I0     = I0_MA(params.MA);
 sigmat = (sigma_ATM_fwd / I0) .* sqrt(yf_fwd);
 
@@ -141,12 +141,15 @@ num_random_strikes = 20;
 K2_vec = [1.0, 0.8 + 0.4 * rand(1, num_random_strikes)];
 K2_vec = sort(K2_vec);
 
-% Analytical Pricing (vectorized)
-price_analytic = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df_fwd, K2_vec, forward_fwd);
+% Analytical Pricing (vectorized). fwd_factor propagates Lemma 2, so the
+% analytic prices the SAME forward convention as the MC (consistent comparison).
+price_analytic = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df_fwd, K2_vec, forward_fwd, fwd_factor);
 
-% Monte Carlo Pricing (vectorized)
+% Monte Carlo Pricing (vectorized) via the unified forward-start engine.
+% sigmat already carries sqrt(T) (= the full scale factors at t1, t2).
 fprintf('  -> Running Monte Carlo Simulation (%d paths)...\n', N_sim_MA);
-[price_MC, CI_MC] = pricing_fwd_start_MC(forward_fwd, K2_vec, df_fwd, N_sim_MA, M_MA, dz_MA, sigmat, alpha_MA, beta_MA, fwd_factor_MA);
+[price_MC, CI_MC] = pricing_fwd_start_MC('MA', params.MA, sigmat(1), sigmat(2), ...
+    N_sim_MA, M_MA, dz_MA, forward_fwd, discount_factor(iT1), discount_factor(iT2), K2_vec);
 
 % Comparison table
 diff_bps = (price_MC - price_analytic) * 10000;
@@ -176,11 +179,14 @@ fprintf('\nSTEP 6 (MA): Verifying ATM Analytical Price via Numerical Integration
 if ~isempty(idx_atm)
     price_analytic_atm = price_analytic(idx_atm);
 
-    ps_plus  = beta_MA / sigmat(1);
-    ps_minus = alpha_MA / sigmat(1);
+    % Lemma 2: the increment s leg is rescaled by fwd_factor (same convention as
+    % the MC / analytic) so this exact-CDF cross-check is consistent at ATM.
+    sigmat_s = fwd_factor * sigmat(1);
+    ps_plus  = beta_MA / sigmat_s;
+    ps_minus = alpha_MA / sigmat_s;
     pt_plus  = beta_MA / sigmat(2);
     pt_minus = alpha_MA / sigmat(2);
-    drift_t1_t2 = gamma_MA * (sigmat(2) - sigmat(1));
+    drift_t1_t2 = gamma_MA * (sigmat(2) - sigmat_s);
 
     [cdf_exact, x_grid] = exact_ma_increment_cdf(pt_plus, pt_minus, ps_plus, ps_minus, drift_t1_t2);
     cdf_fun = @(x) interp1(x_grid, cdf_exact, x, 'pchip', 'extrap');
@@ -201,16 +207,17 @@ compare_moments_MA(N_sim_MA, M_MA, dz_MA, sigmat, params.MA)
 
 %% #########################################################################
 %  MODELS 2 & 3 - ADDITIVE BACHELIER (AB) + GENERALIZED LOGISTIC (GL)
-%  Unified Simulation/ engine. Both models share the EXACT same pipeline:
-%    cdf (ccdf_increment_FFT) -> clean (tail_adjustment) ->
-%    simulate (simulate_from_cdf) -> plot (plot_mc_check) ->
-%    price (price_fwd_start_MC).
+%  Unified engine pricing_fwd_start_MC (case 'AB'/'GL'). Both models share the
+%  EXACT same pipeline inside it:
+%    cdf (lewis_FFT_digital) -> clean (tail_adjustment, internal) ->
+%    simulate (simulate_from_cdf) -> price.
 %  The only model-specific input is the parameter struct + I_0 normalisation.
 %  #########################################################################
 fprintf('STEP 7 (AB / GL): Unified forward-start pricing...\n');
 
 N_sim_LA   = 1e6;
-fwd_factor = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forward.pdf)
+M_lewis    = 16;        % Lewis-FFT grid exponent (N = 2^M) for AB/GL CDFs
+dz_lewis   = 0.05;      % Lewis-FFT z-step (dollar increments)
 
 % model configuration (params + I_0 normalisation)
 % AB: I_0 from I0_AB (ex2). GL: I_0 = sqrt(2*pi)*E[zeta_+] (Baviera-Massaria Eq.14)
@@ -236,39 +243,38 @@ for m = 1:numel(models)
     name   = models(m).name;
     params = models(m).params;
     
+    % FULL scale factors at t1, t2 (= (sigma_ATM/I0)*sqrt(T)).
     sigma_t  = sigma_ATM / models(m).I0;
-    sigma_T1 = sigma_t(iT1);
-    sigma_T2 = sigma_t(iT2);
+    sc_T1    = sigma_t(iT1) * sqrt(T1);
+    sc_T2    = sigma_t(iT2) * sqrt(T2);
 
-    % Evaluation grid scaled to the increment std (model-agnostic proxy):
-    %   Var(W) ~ sigma_T2^2*T2 - fwd_factor^2*sigma_T1^2*T1.
-    std_W  = sqrt(sigma_T2^2*T2 - fwd_factor^2*sigma_T1^2*T1);
-    x_grid = linspace(-12*std_W, 12*std_W, 2000)';
+    % forward-start K2 = 1: MC (full path, Lemma 2). The unified engine builds
+    % both legs' CDFs via lewis_FFT_digital and returns the conditional CDF
+    % (diag) for the visual check / FFT reference.
+    [price_mc, IC, diag] = pricing_fwd_start_MC(name, params, sc_T1, sc_T2, ...
+                        N_sim_LA, M_lewis, dz_lewis, forward(iT2), ...
+                        discount_factor(iT1), discount_factor(iT2), 1);
 
-    % conditional CDF t1 -> t2 (Lewis two-shift + Lemma 2) 
-    cdf_raw        = ccdf_increment_FFT(name, params, T1, T2, sigma_T1, sigma_T2, x_grid, fwd_factor);
-    [cdf_c, x_c]   = tail_adjustment(x_grid, cdf_raw, 10);
-
-    % simulate the increment + visual check 
-    Z_inc = simulate_from_cdf(cdf_c, x_c, true, N_sim_LA);
-    plot_mc_check(Z_inc, x_c, cdf_c, T1, T2);
+    % visual check on the conditional increment t1 -> t2
+    x_c = diag.x_cond;  cdf_c = diag.cdf_cond;
+    plot_mc_check(diag.W, x_c, cdf_c, T1, T2);
     set(gcf, 'Name', sprintf('%s increment t1 -> t2', name));
 
-    % forward-start K2 = 1: MC (full path, Lemma 2)
-    [price_mc, IC] = price_fwd_start_MC(name, params, T1, T2, sigma_T1, sigma_T2, ...
-                        N_sim_LA, forward(iT2), discount_factor(iT1), ...
-                        discount_factor(iT2), x_grid, 1);
-
-    % FFT reference: E[max(W,0)] = int_0^inf (1 - F_W) dx
-    F0       = interp1(x_c, cdf_c, 0, 'spline');
-    mask_pos = x_c > 0;
-    price_an = discount_factor(iT2) * trapz([0; x_c(mask_pos)], 1 - [F0; cdf_c(mask_pos)]);
+    % Semi-analytic forward-start (K2 = 1) via Lewis-FFT on the Lemma-2
+    % increment (Pricing/Analytic). At K2 = 1 this is df * E[max(W,0)].
+    if strcmp(name, 'AB')
+        price_an = pricing_fwd_start_AB_analytic(params, sc_T1, sc_T2, ...
+                       discount_factor(iT2), 1, forward(iT2), fwd_factor, M_lewis, dz_lewis);
+    else
+        price_an = pricing_fwd_start_GL_analytic(params, sc_T1, sc_T2, ...
+                       discount_factor(iT2), 1, forward(iT2), fwd_factor, M_lewis, dz_lewis);
+    end
 
     LA_results(m) = struct('name', name, 'price_an', price_an, ...
                            'price_mc', price_mc, 'IC', IC);
 
     fprintf('\n--- %s FORWARD START (K2 = 1) ---\n', name);
-    fprintf('  FFT reference (analytic) : %.6f\n', price_an);
+    fprintf('  Analytic (Lewis-FFT)     : %.6f\n', price_an);
     fprintf('  Monte Carlo              : %.6f   95%% CI [%.6f, %.6f]\n', ...
             price_mc, IC(1), IC(2));
     fprintf('  Difference               : %.2f bps\n\n', abs(price_mc - price_an)*1e4);

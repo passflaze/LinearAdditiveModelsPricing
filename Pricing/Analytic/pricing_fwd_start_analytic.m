@@ -1,13 +1,26 @@
-function price = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df, K2, F_t0_t2)
-% PRICING_FWD_START_ANALYTIC Computes the analytical price of a forward start 
+function price = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df, K2, F_t0_t2, fwd_factor)
+% PRICING_FWD_START_ANALYTIC Computes the analytical price of a forward start
 % option under the Minimal Additive model. Supports vectorized strikes (K2).
-% 
+%
 % Inputs:
 %   alpha_MA, beta_MA : Tail parameters
 %   sigmat            : Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
 %   df                : Total discount factor from t0 to t2 ( B(t0,t2) )
 %   K2                : Proportional strike multiplier (Scalar or Vector)
 %   F_t0_t2           : Forward price at t0 expiring at t2
+%   fwd_factor        : (optional, default 1) Lemma 2 (Forward.pdf) rescaling
+%                       B(0,T1)/B(0,T2). With the change of variable
+%                       X' = fwd_factor*f_{T1,T1} = f_{T1,T2}, the forward-start
+%                       payoff and the joint law map EXACTLY onto the
+%                       fwd_factor = 1 formulation with the s leg scale rescaled
+%                       to fwd_factor*sigmat(1) (MA marginals scale linearly).
+%                       Hence we simply rescale sigmat(1) below.
+
+    if nargin < 7 || isempty(fwd_factor)
+        fwd_factor = 1;
+    end
+    % Lemma 2 rescaling of the subtracted (s = t1) leg. sigmat(2) is unchanged.
+    sigmat(1) = fwd_factor * sigmat(1);
 
     % =========================================================================
     % STEP 1: COMPUTE STRUCTURAL PARAMETERS

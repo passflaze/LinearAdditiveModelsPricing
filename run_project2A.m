@@ -79,5 +79,5 @@ LA_results_es4 = run_ex4(params, market);
 %  DONE
 %  =========================================================================
 fprintf('\n=========================================================================\n');
-fprintf('  PROJECT 2A PIPELINE COMPLETED (EX2 calibration -> EX3 forward-start).  \n');
+fprintf('  PROJECT 2A PIPELINE COMPLETED (EX2 calibration -> EX3 forward-start -> EX4 CoC-PoP-Chooser pricing).  \n');
 fprintf('=========================================================================\n');

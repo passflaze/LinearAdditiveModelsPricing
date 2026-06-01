@@ -98,13 +98,23 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
         % preprefactor_neg = interp1(z_grid, preprefactor_neg, z_grid_std, 'spline');
         cdf_clean_neg    = 1 + preprefactor_neg .* fft_cdf_neg;
         z_grid_std = z_grid;
-        
+
+        % Each one-shift reconstruction is a CDF (digital-put price) and must
+        % lie in [0,1]. At the extreme grid edges (|z| ~ N*dz/2) the damping
+        % prefactor exp(shift*z) of the OPPOSITE side overflows, so the raw
+        % grid blows up there (e.g. ~1e23 for the gamma-based GL CF). Clamp
+        % BEFORE the blend: this is a no-op in the valid central region but
+        % removes the overflow, so the tanh blend (and the boundary-convergence
+        % diagnostic below) stay finite. tail_adjustment then splices the tails.
+        cdf_clean_pos = min(max(cdf_clean_pos, 0), 1);
+        cdf_clean_neg = min(max(cdf_clean_neg, 0), 1);
+
         % Tanh blend
         scale    = (z_grid_std(end) - z_grid_std(1)) / 20;
         w        = 0.5 * (1 + tanh(z_grid_std / scale));
         cdf_grid = (1 - w) .* cdf_clean_pos + w .* cdf_clean_neg;
     else
-        cdf_grid = cdf_clean_pos;
+        cdf_grid = min(max(cdf_clean_pos, 0), 1);
         z_grid_std = z_grid;
     end
 
