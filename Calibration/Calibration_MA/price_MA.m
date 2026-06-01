@@ -22,7 +22,7 @@ function CallPrice = price_MA(params, discount_factor, yearfraction, sigma_ATM, 
     C     = 1 / ((1/beta) + (1/alpha)); % Equivalent to (1/beta + 1/alpha)^(-1)
     
     % 3. Calculate I0 based on the sign of gamma_MA (I0 is a scalar)
-    I0 = I0_MA(alpha,beta);
+    I0 = I0_MA(params);
     
     % 4. Pre-compute the maturity-dependent multiplier
     % Since discount_factor, sigma_ATM, and yearfraction are all (M x 1),

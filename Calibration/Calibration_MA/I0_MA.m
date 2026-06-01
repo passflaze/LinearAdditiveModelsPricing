@@ -1,4 +1,4 @@
-function I0 = I0_MA(alpha, beta)
+function I0 = I0_MA(params)
 % I0_MA Computes the normalization constant (I0) for the MA model.
 %
 % This function calculates the analytical structural component I0 used to
@@ -15,6 +15,8 @@ function I0 = I0_MA(alpha, beta)
 % OUTPUT:
 %   I0       : Analytical normalization factor value (scalar)
 
+
+    alpha = params(1); beta = params(2);
     % =========================================================================
     % STEP 1: INPUT INTEGRITY CHECKS
     % =========================================================================

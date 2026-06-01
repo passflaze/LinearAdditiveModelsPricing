@@ -122,7 +122,7 @@ fwd_factor_MA = discount_factor(iT1) / discount_factor(iT2);   % Lemma 2 (Forwar
 
 % 3. Integrated Volatility computation
 C_MA   = 1 / ((1/alpha_MA) + (1/beta_MA));
-I0     = I0_MA(alpha_MA, beta_MA);
+I0     = I0_MA(params.MA);
 sigmat = (sigma_ATM_fwd / I0) .* sqrt(yf_fwd);
 
 fprintf('  -> Parameters extracted for interval [t1 = %.2f, t2 = %.2f]\n\n', yf_fwd(1), yf_fwd(2));
