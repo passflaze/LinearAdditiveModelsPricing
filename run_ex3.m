@@ -44,9 +44,6 @@ addpath("Simulation/");
 addpath("Simulation/Simulation_MA/")
 addpath(genpath("Pricing/"));   % Pricing/Analytic (fwd-start AB/GL/MA) + Pricing/MC
 
-% Single RNG seed for reproducibility
-rng(1234);
-
 % Standalone mode: if no calibrated inputs are passed, calibrate first.
 if nargin < 2
     [params, market] = calibrate_surface(struct('verbose', false));
@@ -147,9 +144,10 @@ price_analytic = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df_fwd, K
 
 % Monte Carlo Pricing (vectorized) via the unified forward-start engine.
 % sigmat already carries sqrt(T) (= the full scale factors at t1, t2).
+rng(1234);
 fprintf('  -> Running Monte Carlo Simulation (%d paths)...\n', N_sim_MA);
 [price_MC, CI_MC] = pricing_fwd_start_MC('MA', params.MA, sigmat(1), sigmat(2), ...
-    N_sim_MA, M_MA, dz_MA, forward_fwd, discount_factor(iT1), discount_factor(iT2), K2_vec);
+    0, M_MA, dz_MA, forward_fwd, discount_factor(iT1), discount_factor(iT2), K2_vec);
 
 % Comparison table
 diff_bps = (price_MC - price_analytic) * 10000;
@@ -251,8 +249,9 @@ for m = 1:numel(models)
     % forward-start K2 = 1: MC (full path, Lemma 2). The unified engine builds
     % both legs' CDFs via lewis_FFT_digital and returns the conditional CDF
     % (diag) for the visual check / FFT reference.
+    rng(1234);
     [price_mc, IC, diag] = pricing_fwd_start_MC(name, params, sc_T1, sc_T2, ...
-                        N_sim_LA, M_lewis, dz_lewis, forward(iT2), ...
+                        0, M_lewis, dz_lewis, forward(iT2), ...
                         discount_factor(iT1), discount_factor(iT2), 1);
 
     % visual check on the conditional increment t1 -> t2

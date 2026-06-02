@@ -1,4 +1,4 @@
-function [price, CI] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA, fwd_factor)
+function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA, fwd_factor)
 % PRICING_FWD_START_MC Computes the Monte Carlo price of a Forward Start Option.
 %
 %   This function completely encapsulates the Minimal Additive (MA) structural
@@ -32,6 +32,22 @@ function [price, CI] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sig
     if nargin < 10 || isempty(fwd_factor)
         fwd_factor = 1;
     end
+
+    % if N_sim == 0
+    %     % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
+    %     [~, ~, ~, sigma_est] = pricing_fwd_start_MA_MC(forward, K, df, 1000, M, dz, ...
+    %         sigmat, alpha_MA, beta_MA, fwd_factor);
+    %     target_error = 10 * 1e-4; 
+    %     N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 1e8);
+    % 
+    %     % Verification print
+    %     fprintf('--- PILOT SIMULATION ---\n');
+    %     fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+    %     fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+    %     fprintf('Required N_sim:    %d\n', N_sim);
+    %     fprintf('------------------------\n');
+    % end
+    
 
     % =========================================================================
     % STEP 1: INTERNAL PARAMETER COMPUTATION
@@ -145,7 +161,7 @@ function [price, CI] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sig
     % =========================================================================
     % STEP 5: FINAL PRICING AND CONFIDENCE INTERVAL (95%)
     % =========================================================================
-    [price, ~, CI, ~] = normfit(discounted_payoff);
+    [price, sigma, CI, ~] = normfit(discounted_payoff);
 
 end
 

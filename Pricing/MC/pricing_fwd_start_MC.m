@@ -1,4 +1,4 @@
-function [price, CI, diag] = pricing_fwd_start_MC(model, params, sigma_T1, sigma_T2, ...
+function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1, sigma_T2, ...
         N_sim, M, dz, forward, B_0_t1, B_0_t2, strike)
 % PRICING_FWD_START_MC  Monte Carlo price of the forward-start option
 %   payoff = [ S(T2) - K2 * F(T1,T2) ]_+
@@ -44,6 +44,25 @@ function [price, CI, diag] = pricing_fwd_start_MC(model, params, sigma_T1, sigma
 %   diag  : struct with the cleaned conditional CDF (x_cond, cdf_cond) and the
 %           simulated increment W (for plotting / FFT cross-checks). Empty for
 %           the MA branch.
+    
+    if N_sim == 0
+        % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
+        [~, ~, ~, sigma_est] = pricing_fwd_start_MC(model, params, sigma_T1, sigma_T2, ...
+        1000, M, dz, forward, B_0_t1, B_0_t2, strike);
+        
+        target_error = 10 * 1e-4; 
+       
+        N_sim_array = ceil(((1.96 * sigma_est) / target_error).^2);
+        N_sim = min(max(N_sim_array), 1e7);
+        
+        % Verification print
+        fprintf('--- PILOT SIMULATION ---\n');
+        % Display the max sigma if it's an array to keep the print clean
+        fprintf('Estimated Std Dev: %.4f (max across strikes)\n', max(sigma_est));
+        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+        fprintf('Required N_sim:    %d\n', N_sim);
+        fprintf('------------------------\n');
+    end
 
     % Lemma 2 (Forward.pdf): F(T1,T2) = forward + fwd_factor * f_{T1,T1}.
     fwd_factor = B_0_t1 / B_0_t2;
@@ -54,7 +73,7 @@ function [price, CI, diag] = pricing_fwd_start_MC(model, params, sigma_T1, sigma
         % -----------------------------------------------------------------
             % sigma_T1/sigma_T2 already carry sqrt(T), so they ARE the sigmat
             % vector expected by pricing_fwd_start_MA_MC.
-            [price, CI] = pricing_fwd_start_MA_MC(forward, strike, B_0_t2, ...
+            [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, strike, B_0_t2, ...
                               N_sim, M, dz, [sigma_T1; sigma_T2], ...
                               params(1), params(2), fwd_factor);
             diag = struct([]);
@@ -90,7 +109,7 @@ function [price, CI, diag] = pricing_fwd_start_MC(model, params, sigma_T1, sigma
             K       = strike(:)';                      % 1 x N_K row
             payoff  = max(S_T2 - K .* F_T1_T2, 0);     % N_sim x N_K
             discounted_payoff  = B_0_t2 * payoff;
-            [price, ~, CI, ~] = normfit(discounted_payoff);
+            [price, sigma, CI, ~] = normfit(discounted_payoff);
 
             diag = struct('x_cond', x_2, 'cdf_cond', cdf_2, 'W', W);
 
