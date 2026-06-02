@@ -57,6 +57,11 @@ df      = [discount_factor(iT1), discount_factor(iT2)];
 % Discount factor at t2 (used by ATM-call sanity checks below)
 B_0_t2  = discount_factor(iT2);
 
+% Lemma 2 (Forward.pdf): F(T1,T2) = F(t0,T2) + fwd_factor * f_{T1,T1}. The MC
+% pricers recompute this internally from df; it is needed here only for the
+% GL/AB ATM chooser closed-form decomposition (the t1 leg is on F(T1,T2)).
+fwd_factor = discount_factor(iT1) / discount_factor(iT2);
+
 % Sanity-check enabling flag: the Chooser closed-form decomposition into
 % two ATM-forward calls is valid ONLY when K2 = F(t0,T2).
 chooser_sanity_enabled = (K2 == F_t0_t2);
@@ -91,8 +96,11 @@ rng(1234);
 % Chooser analytic (only valid for ATM strike K2 = F(t0,T2)):
 % Chooser_ATM = ATM-call(T2) + ATM-call(T1), both discounted at B(0,T2).
 if chooser_sanity_enabled
+    % t1 leg is the ATM option on F(T1,T2) = F(t0,T2) + fwd_factor*f_{T1,T1},
+    % hence the scale carries fwd_factor (Lemma 2). call_ATM_vanilla is linear
+    % in the scale, so this equals fwd_factor * ATM-call(T1).
     [call_ATM_T2_GL] = call_ATM_vanilla(params_GL, scale_factor_GL(2), B_0_t2, 'GL');
-    [call_ATM_T1_GL] = call_ATM_vanilla(params_GL, scale_factor_GL(1), B_0_t2, 'GL');
+    [call_ATM_T1_GL] = call_ATM_vanilla(params_GL, fwd_factor*scale_factor_GL(1), B_0_t2, 'GL');
     price_Ch_GL_analytic    = call_ATM_T2_GL + call_ATM_T1_GL;
 else
     price_Ch_GL_analytic = NaN;
@@ -164,8 +172,9 @@ rng(1234);
 
 % Chooser analytic (only valid for ATM strike K2 = F(t0,T2)):
 if chooser_sanity_enabled
+    % t1 leg on F(T1,T2): scale carries fwd_factor (Lemma 2), see GL block above.
     [call_ATM_T2_AB] = call_ATM_vanilla(params_AB, scale_factor_AB(2), B_0_t2, 'AB');
-    [call_ATM_T1_AB] = call_ATM_vanilla(params_AB, scale_factor_AB(1), B_0_t2, 'AB');
+    [call_ATM_T1_AB] = call_ATM_vanilla(params_AB, fwd_factor*scale_factor_AB(1), B_0_t2, 'AB');
     price_Ch_AB_analytic    = call_ATM_T2_AB + call_ATM_T1_AB;
 else
     price_Ch_AB_analytic = NaN;
@@ -258,8 +267,45 @@ end
 disp('=============================================================================================');
 disp(S);
 
-% Pack both tables into the output structure
-LA_results.Pricing = T;
-LA_results.SanityChecks = S;
+%% =========================================================================
+%  SMART EXTRAPOLATION OF THE SIMULATION CDF
+%
+%  Ex. 4 hint (cf. point 0 and [5]): the increment CDF is reconstructed by FFT
+%  only on the finite space range [-zn, zn], zn = dz*N/2. A "smart extrapolation"
+%  replaces the truncated tails beyond +-zn with the model's analytic exponential
+%  tails so the sampler can reach beyond the grid. We sweep the simulation grid
+%  M_sim and, for each, compare the CoC with smart extrapolation OFF (truncated)
+%  vs ON (analytic tails) against the large-grid reference (M_ref). The inner-call
+%  Lewis-FFT always uses M_ref, so only the increment-sampling grid varies.
+%
+%  Note (FFT duality zn*dx = pi): shrinking N at fixed dz shrinks the space range
+%  AND coarsens the Fourier step together, so an extremely small grid fails by CF
+%  discretisation (which extrapolation cannot fix) rather than by tail truncation.
+%  We therefore sweep over grids where the CF is actually resolved.
+%% =========================================================================
+M_list    = [11, 12, 13, 14];   % simulation-grid exponents to sweep
+N_sim_ext = 1e6;                % shared-seed runs -> MC noise cancels
+
+models_ext = {'GL'; 'AB'; 'MA'};
+params_ext = {params_GL; params_AB; params_MA};
+scale_ext  = {scale_factor_GL; scale_factor_AB; scale_factor_MA};
+
+R_ext = smart_extrapolation_check(models_ext, params_ext, scale_ext, ...
+            N_sim_ext, M, M_list, dz, F_t0_t2, K1, K2, df, 1234);
+
+disp(' ');
+disp('=============================================================================================');
+disp('                       SMART EXTRAPOLATION OF THE SIMULATION CDF                              ');
+disp('  CoC vs simulation-grid size: smart OFF (truncated) vs ON (analytic tails) vs reference.     ');
+disp('  AbsErr = |price - reference|. If AbsErr_ON ~ AbsErr_OFF the benefit is negligible (the       ');
+disp('  light exponential tails are already covered once the grid resolves the CF).                 ');
+disp('=============================================================================================');
+fprintf('  Reference grid M = %d (N = %d)  |  N_sim = %.0e\n\n', M, 2^M, N_sim_ext);
+disp(R_ext);
+
+% Pack tables into the output structure
+LA_results.Pricing            = T;
+LA_results.SanityChecks       = S;
+LA_results.SmartExtrapolation = R_ext;
 
 end

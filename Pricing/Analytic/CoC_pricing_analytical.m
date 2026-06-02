@@ -38,11 +38,18 @@ function price = CoC_pricing_analytical(params, scale_factor, F_t0_T2, K1, K2, d
         fprintf('\n--- CoC ANALYTICAL ENGINE START ---\n');
     end
 
-    % 1. Forward conditional discount factor
-    df_t1_t2 = df(2) / df(1);
-    
-    % 2. Define the inner Call price as a function of the stochastic increment 'x'
-    call_val = @(x) call_pricing_analytic_increments_MA(K2 - F_t0_T2 - x, params, scale_factor, df_t1_t2);
+    % 1. Forward conditional discount factor and Lemma-2 forward rescaling.
+    %    F(T1,T2) = F(t0,T2) + fwd_factor * f_{T1,T1},  fwd_factor = B(0,T1)/B(0,T2).
+    df_t1_t2   = df(2) / df(1);
+    fwd_factor = df(1) / df(2);
+
+    % 2. Define the inner Call price as a function of the increment x = f_{T1,T1}.
+    %    The inner-call increment law carries fwd_factor exactly as in cf_MA_FA;
+    %    since cf_MA_FA(u,[s1,s2],fwd) == cf_MA_FA(u,[fwd*s1,s2],1), the closed
+    %    form is obtained by rescaling the s-leg scale by fwd_factor. The dollar
+    %    moneyness seen at t1 is K2 - F_t1_T2 = K2 - F(t0,T2) - fwd_factor*x.
+    scale_inc = [fwd_factor * scale_factor(1), scale_factor(2)];
+    call_val  = @(x) call_pricing_analytic_increments_MA(K2 - F_t0_T2 - fwd_factor*x, params, scale_inc, df_t1_t2);
     
     % 3. Find the critical increment (x_star) where the Call is exactly ATM (Value = K1)
     objfun = @(x) call_val(x) - K1;

@@ -45,21 +45,26 @@ function chooser_price = Chooser_pricing_analytic(params, scale_factor, df, F_t0
     
     % 1. Calculate the relative strike 'k' (moneyness for additive processes)
     k = K2 - F_t0_T2;
-    
+
+    % Lemma 2 (Forward.pdf): F(T1,T2) = F(t0,T2) + fwd_factor * f_{T1,T1},
+    % fwd_factor = B(0,T1)/B(0,T2). The choice leg below is a call on F(T1,T2),
+    % i.e. on fwd_factor * f_{T1,T1} ~ MA(fwd_factor * scale_factor(1)).
+    fwd_factor = df(1) / df(2);
+
     % 2. Calculate the base Vanilla Call price analytically at maturity T2
-    % Note: We pass the relative strike 'k', NOT the absolute strike 'K2', 
+    % Note: We pass the relative strike 'k', NOT the absolute strike 'K2',
     % because the analytic function evaluates the zero-mean process.
     call_price_t2 = call_pricing_analytic_MA(k, params, scale_factor(2), df(2), diagnostic);
-    
+
     % 3. Apply Put-Call Parity to derive the base Vanilla Put price at t0
     % P = C + B(t0,T2) * (K - F)
     put_price_t2 = call_price_t2 + df(2) * k;
-    
-    % 4. Evaluate the Option to Choose (Call on the process at t1)
+
+    % 4. Evaluate the Option to Choose (Call on F(T1,T2) at t1)
     % The payoff is evaluated at t1, but we discount directly to t0 using df(2).
     % Why df(2)? Because the choice payoff is multiplied by B(t1, T2) at time t1.
     % Discounting that to t0 gives: B(t0, t1) * B(t1, T2) = B(t0, T2) = df(2).
-    price_choice = call_pricing_analytic_MA(k, params, scale_factor(1), df(2), diagnostic);
+    price_choice = call_pricing_analytic_MA(k, params, fwd_factor * scale_factor(1), df(2), diagnostic);
     
     % 5. Final Chooser Price: Base Put + Option to Choose
     chooser_price = put_price_t2 + price_choice;
