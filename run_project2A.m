@@ -73,7 +73,7 @@ LA_results = run_ex3(params, market);
 %% =========================================================================
 %  EX 4 - CoC-PoP-Chooser PRICING (con i parametri calibrati in ex2)
 %  =========================================================================
-LA_results_es4 = run_ex4(params, market);
+LA_results_es4 = run_ex4(params, market, false);
 
 %% =========================================================================
 %  DONE
