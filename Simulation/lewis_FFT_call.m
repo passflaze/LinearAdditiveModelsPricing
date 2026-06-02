@@ -24,6 +24,8 @@ function price = lewis_FFT_call(cf, M, dz, params, scalefactor, strikes, doubles
         fwd_factor = 1;
     end
 
+
+
     % Only the Lemma-2-aware increment CFs (cf_MA_FA, cf_increment_GL/AB)
     % accept the 4th fwd_factor argument. Plain marginal CFs (cf_MA_IA) and
     % pre-bound wrappers declare 3 inputs: call them without fwd_factor so this
@@ -47,23 +49,24 @@ function price = lewis_FFT_call(cf, M, dz, params, scalefactor, strikes, doubles
     x_grid = x1 : dx : xn;
 
     % Damping shifts 
+    scalefactor = max(scalefactor);
     switch model
         case 'MA'
             % params(1) = alpha, params(2) = beta
-            shift_pos =  0.5* params(1) / scalefactor(2);
-            shift_neg = -0.5 * params(2) / scalefactor(2);
+            shift_pos =  0.5* params(1) / scalefactor;
+            shift_neg = -0.5 * params(2) / scalefactor;
 
         case 'GL'
             % params(1) = alpha, params(2) = beta
-            shift_pos =  0.5 * params(1) / scalefactor(2);
-            shift_neg = -0.5* params(2) / scalefactor(2);
+            shift_pos =  0.5 * params(1) / scalefactor;
+            shift_neg = -0.5* params(2) / scalefactor;
 
         case 'AB'
             % params(1) = k (kappa), params(2) = eta
             kappa = params(1);
             eta   = params(2);
-            shift_pos =  0.5 * (-eta + sqrt(eta^2 + 1/kappa)) / scalefactor(2);
-            shift_neg = -0.5 * (eta + sqrt(eta^2 + 1/kappa)) / scalefactor(2);
+            shift_pos =  0.5 * (-eta + sqrt(eta^2 + 1/kappa)) / scalefactor;
+            shift_neg = -0.5 * (eta + sqrt(eta^2 + 1/kappa)) / scalefactor;
     end
 
     % --- Negative shift: FFT inversion ---
