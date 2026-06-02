@@ -29,8 +29,19 @@
 %    .N_sim .M .dz .N_grid .seed      (.seed -> common random numbers)
 %
 %  bumps  : finite-difference steps (SAME for exotic and vanillas)
-%    .dF    absolute forward bump ($)         e.g. 0.5
-%    .dSig  relative ATM-vol bump             e.g. 1e-2
+%    .dF    absolute forward bump ($)              e.g. 0.5   (delta, gamma)
+%    .dSig  relative ATM-vol bump                  e.g. 1e-2  (scale-bump vega)
+%    .dvol  absolute sticky-strike vol shift       e.g. 0.5   (recalib vega)
+%
+%  VEGA MODES (run_ex6 vega_mode):
+%    'scale'   analytic bump of the normalized scale: self-similar /
+%              sticky-moneyness move, (k,eta) FIXED. No re-calibration, exact,
+%              low noise. Units: per RELATIVE vol shift (dSig).
+%    'recalib' sticky-strike PARALLEL shift of the implied-vol surface + AB
+%              re-calibration (shock_recalibrate_AB): (k,eta) MOVE,
+%              model-consistent. Units: per ABSOLUTE Bachelier vol (dvol).
+%    The two answer different smile-dynamics questions; run_ex6 reports both
+%    plus the (k,eta) drift, and hedges with the recalib (sticky-strike) vega.
 %
 %  greeks : output of greeks_exotic_AB / greeks_vanilla_AB
 %    .price .delta .gamma .vega
@@ -49,8 +60,21 @@
 %  nF*(F_t - F_{t-1}), NOT as nF*F (a future has zero entry cost).
 %
 %  -----------------------------------------------------------------------
+%  FILE MAP
+%    price_exotic_AB        dispatch CoC/PoP/Chooser MC (+ CRN)
+%    vanilla_AB_price       single AB vanilla (call/put), shared building block
+%    greeks_exotic_AB       delta/gamma (forward bump) + scale-bump vega
+%    greeks_vanilla_AB      delta/gamma/vega of call/put/future
+%    shock_recalibrate_AB   sticky-strike IV shock + AB re-calibration
+%    vega_recalib_sticky    model-consistent vega (+/- shocks shared, CRN)
+%    build_hedge_AB         delta-gamma-vega hedge solve (+ cond guard)
+%    hedging_cost           bid-ask transaction cost
+%    hedge_backtest         next-Tuesdays P&L / cost backtest
+%    run_ex6                orchestrator (vega_mode = scale|recalib|both)
+%
 %  OWNERSHIP
-%    Persona A : price_exotic_AB, greeks_exotic_AB, greeks_vanilla_AB
+%    Persona A : price_exotic_AB, vanilla_AB_price, greeks_exotic_AB,
+%                greeks_vanilla_AB, shock_recalibrate_AB, vega_recalib_sticky
 %    Persona B : build_hedge_AB, hedging_cost, hedge_backtest, run_ex6
 %  Sync points : the structs above.
 % =========================================================================
