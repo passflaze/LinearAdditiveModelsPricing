@@ -81,7 +81,13 @@ LA_results_es4 = run_ex4(params, market, false);
 %         il backtest con ricalibrazione sui prossimi due martedi (piu lento).
 %  =========================================================================
 addpath("Hedging/");
-LA_results_es6 = run_ex6(params, market, true, true);
+LA_results_es6 = run_ex6(params, market, true, true, 'recalib');
+
+%%
+
+s0 = shock_recalibrate_AB(market, params.AB, 0);
+disp(table(params.AB, s0.params_AB, s0.params_AB - params.AB, ...
+     'VariableNames', {'base','recal_dvol0','drift'}))
 
 %% =========================================================================
 %  DONE
