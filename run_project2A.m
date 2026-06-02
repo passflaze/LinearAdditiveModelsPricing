@@ -43,7 +43,7 @@ addpath("Simulation/Simulation_MA/");
 %  =========================================================================
 %  ex0 e uno script di analisi delle distribuzioni: confronta le PDF dei tre
 %  modelli additivi e valida la AB via simulazione Monte Carlo.
-ex0;
+run_ex0(true);
 
 %% =========================================================================
 %  EX 1 + EX 2 - CURVE BOOTSTRAP & VOLATILITY SURFACE CALIBRATION
