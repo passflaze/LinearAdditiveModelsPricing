@@ -18,7 +18,9 @@ function run_ex0(check_plot)
     %% 1. Global Parameters and Evaluation Grid
     p_plus  = 1.5;
     p_minus = 0.9;
-    x_grid = linspace(-30, 30, 500);
+    
+    % Central grid for standard plots
+    x_grid = linspace(-30, 30, 2000);
 
     %% 2. MA PDF (Asymmetric Laplace)
     % sigma*sqrt(t) = 1 for unit-time evaluation
@@ -85,7 +87,9 @@ function run_ex0(check_plot)
     xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 14);
     ylabel('Density', 'FontSize', 14);
     legend('Location', 'northeast', 'FontSize', 12, 'Interpreter', 'latex');
-    xlim([min(x_grid), max(x_grid)]);
+    
+    % Constrained to central scale
+    xlim([-30, 30]); 
     ylim([0, max([y_MA, y_AB, y_GL, y_norm]) * 1.1]);
     hold off;
 
@@ -103,55 +107,68 @@ function run_ex0(check_plot)
     xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 14);
     ylabel('Density', 'FontSize', 14);
     legend('Location', 'northeast', 'FontSize', 12, 'Interpreter', 'latex');
-    xlim([min(x_grid), max(x_grid)]);
+    
+    % Constrained to central scale
+    xlim([-30, 30]); 
     ylim([1e-10, max([y_MA, y_AB, y_GL]) * 1.1]);
     hold off;
 
     %% 8. Tail Analysis (Zoom, Semi-Log Scale)
     figure('Color', 'w', 'Position', [150, 150, 1000, 450]);
     
-    % Left Tail
+    % Dedicated extreme grids
+    x_left_tail  = linspace(-500, -450, 100);
+    x_right_tail = linspace(450, 500, 100);
+    
+    % Evaluate analytical models on extreme left grid
+    y_GL_left  = pdf_GL([p_minus; p_plus], x_left_tail);
+    y_MA_left  = pdf_MA([p_minus; p_plus], 1, x_left_tail);
+    y_AB_left  = pdf_NIG(x_left_tail, alpha_nig, beta_nig, mu_nig, delta_nig);
+    
+    % Evaluate analytical models on extreme right grid
+    y_GL_right = pdf_GL([p_minus; p_plus], x_right_tail);
+    y_MA_right = pdf_MA([p_minus; p_plus], 1, x_right_tail);
+    y_AB_right = pdf_NIG(x_right_tail, alpha_nig, beta_nig, mu_nig, delta_nig);
+
+    % Extreme Left Tail [-500, -450]
     subplot(1, 2, 1);
     hold on; grid on; box on;
-    semilogy(x_grid, y_MA, 'LineWidth', 2, 'Color', [0 0.4470 0.7410],     'DisplayName', 'MA');
-    semilogy(x_grid, y_AB, 'LineWidth', 2, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB');
-    semilogy(x_grid, y_GL, 'LineWidth', 2, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'GL');
+    semilogy(x_left_tail, y_MA_left, 'LineWidth', 2, 'Color', [0 0.4470 0.7410],     'DisplayName', 'MA');
+    semilogy(x_left_tail, y_AB_left, 'LineWidth', 2, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB');
+    semilogy(x_left_tail, y_GL_left, 'LineWidth', 2, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'GL');
     
-    x_refL  = linspace(-30, -10, 50);
-    anchorL = interp1(x_grid, y_AB, -10);
-    refL    = anchorL * exp(p_minus * (x_refL + 10));
+    x_refL  = linspace(-500, -450, 50);
+    anchorL = interp1(x_left_tail, y_AB_left, -450); % Anchored to the inner edge of the view
+    refL    = anchorL * exp(p_minus * (x_refL + 450));
     semilogy(x_refL, refL, 'k--', 'LineWidth', 1.5, ...
         'DisplayName', sprintf('slope p_- = %.1f', p_minus));
         
-    title('Left Tail (Log-Scale)', 'FontSize', 14, 'FontWeight', 'bold');
+    title('Extreme Left Tail (Log-Scale)', 'FontSize', 14, 'FontWeight', 'bold');
     xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 12);
     ylabel('Log-Density', 'FontSize', 12);
     legend('Location', 'southwest', 'FontSize', 10);
     set(gca, 'YScale', 'log');
-    xlim([-30, -10]);
-    ylim([1e-10, 1e-3]);
+    xlim([-500, -450]);
     hold off;
 
-    % Right Tail
+    % Extreme Right Tail [450, 500]
     subplot(1, 2, 2);
     hold on; grid on; box on;
-    semilogy(x_grid, y_MA, 'LineWidth', 2, 'Color', [0 0.4470 0.7410],     'DisplayName', 'MA');
-    semilogy(x_grid, y_AB, 'LineWidth', 2, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB');
-    semilogy(x_grid, y_GL, 'LineWidth', 2, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'GL');
+    semilogy(x_right_tail, y_MA_right, 'LineWidth', 2, 'Color', [0 0.4470 0.7410],     'DisplayName', 'MA');
+    semilogy(x_right_tail, y_AB_right, 'LineWidth', 2, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB');
+    semilogy(x_right_tail, y_GL_right, 'LineWidth', 2, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'GL');
     
-    x_refR  = linspace(10, 30, 50);
-    anchorR = interp1(x_grid, y_AB, 10);
-    refR    = anchorR * exp(-p_plus * (x_refR - 10));
+    x_refR  = linspace(450, 500, 50);
+    anchorR = interp1(x_right_tail, y_AB_right, 450); % Anchored to the inner edge of the view
+    refR    = anchorR * exp(-p_plus * (x_refR - 450));
     semilogy(x_refR, refR, 'k--', 'LineWidth', 1.5, ...
         'DisplayName', sprintf('slope -p_+ = -%.1f', p_plus));
         
-    title('Right Tail (Log-Scale)', 'FontSize', 14, 'FontWeight', 'bold');
+    title('Extreme Right Tail (Log-Scale)', 'FontSize', 14, 'FontWeight', 'bold');
     xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 12);
     ylabel('Log-Density', 'FontSize', 12);
     legend('Location', 'northeast', 'FontSize', 10);
     set(gca, 'YScale', 'log');
-    xlim([10, 30]);
-    ylim([1e-10, 1e-3]);
+    xlim([450, 500]);
     hold off;
-
 end
