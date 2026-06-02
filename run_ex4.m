@@ -268,37 +268,35 @@ disp('==========================================================================
 disp(S);
 
 %% =========================================================================
-%  SMART EXTRAPOLATION OF THE SIMULATION CDF
+%  SMART EXTRAPOLATION OF THE SIMULATION CDF — TRUNCATION TEST
 %
-%  Ex. 4 hint (cf. point 0 and [5]): the increment CDF is reconstructed by FFT
-%  only on the finite space range [-zn, zn], zn = dz*N/2. A "smart extrapolation"
-%  replaces the truncated tails beyond +-zn with the model's analytic exponential
-%  tails so the sampler can reach beyond the grid. We sweep the simulation grid
-%  M_sim and, for each, compare the CoC with smart extrapolation OFF (truncated)
-%  vs ON (analytic tails) against the large-grid reference (M_ref). The inner-call
-%  Lewis-FFT always uses M_ref, so only the increment-sampling grid varies.
-%
-%  Note (FFT duality zn*dx = pi): shrinking N at fixed dz shrinks the space range
-%  AND coarsens the Fourier step together, so an extremely small grid fails by CF
-%  discretisation (which extrapolation cannot fix) rather than by tail truncation.
-%  We therefore sweep over grids where the CF is actually resolved.
+%  Ex. 4 hint (cf. point 0 and [5]): a "smart extrapolation" replaces the CDF
+%  tails truncated by the finite FFT range with the model's analytic exponential
+%  tails. To isolate the truncation effect from the (unrelated) CF discretisation
+%  error, we start from the ACCURATE increment CDF (large grid M_ref) and
+%  ARTIFICIALLY truncate it to a symmetric window [-L, L], L = c * std(ft1). For
+%  each truncation level the CoC is priced with smart OFF (tails lost) vs ON
+%  (analytic tails re-attached) on the same random stream, vs the untruncated
+%  reference. AbsErr_OFF should grow as L shrinks, AbsErr_ON should stay small:
+%  this proves the extrapolation works. In the real FFT grid such truncation
+%  never arises (a CF-resolving grid spans >> 10 std), so for these light-tailed
+%  models the extrapolation is in practice unnecessary.
 %% =========================================================================
-M_list    = [11, 12, 13, 14];   % simulation-grid exponents to sweep
-N_sim_ext = 1e6;                % shared-seed runs -> MC noise cancels
+c_list    = [1, 1.5, 2, 3];   % truncation half-widths in std units (L = c*std)
+N_sim_ext = 1e6;              % shared-seed runs -> MC noise cancels
 
 models_ext = {'GL'; 'AB'; 'MA'};
 params_ext = {params_GL; params_AB; params_MA};
 scale_ext  = {scale_factor_GL; scale_factor_AB; scale_factor_MA};
 
 R_ext = smart_extrapolation_check(models_ext, params_ext, scale_ext, ...
-            N_sim_ext, M, M_list, dz, F_t0_t2, K1, K2, df, 1234);
+            N_sim_ext, M, c_list, dz, F_t0_t2, K1, K2, df, 1234);
 
 disp(' ');
 disp('=============================================================================================');
-disp('                       SMART EXTRAPOLATION OF THE SIMULATION CDF                              ');
-disp('  CoC vs simulation-grid size: smart OFF (truncated) vs ON (analytic tails) vs reference.     ');
-disp('  AbsErr = |price - reference|. If AbsErr_ON ~ AbsErr_OFF the benefit is negligible (the       ');
-disp('  light exponential tails are already covered once the grid resolves the CF).                 ');
+disp('               SMART EXTRAPOLATION OF THE SIMULATION CDF — TRUNCATION TEST                    ');
+disp('  Accurate CDF truncated to [-L, L] (L = c*std): smart OFF (tails lost) vs ON (analytic       ');
+disp('  tails) vs untruncated reference. TailCut = discarded mass; AbsErr = |price - reference|.    ');
 disp('=============================================================================================');
 fprintf('  Reference grid M = %d (N = %d)  |  N_sim = %.0e\n\n', M, 2^M, N_sim_ext);
 disp(R_ext);
