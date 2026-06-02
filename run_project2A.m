@@ -60,10 +60,10 @@ opts.callpath   = "Data/datacalls";
 opts.putpath    = "Data/dataputs";
 opts.expiryFile = "Data/Expiries_Futures.txt";
 opts.valueDate  = datetime(2020, 06, 02);
-opts.verbose    = true;    % report completo di calibrazione a video
-opts.plot       = true;    % plot delle distribuzioni implicite
+opts.verbose    = false;    % report completo di calibrazione a video
+opts.plot       = false;    % plot delle distribuzioni implicite
 
-[params, market] = calibrate_surface(opts);
+[params, market] = run_ex2(opts);
 
 %% =========================================================================
 %  EX 3 - FORWARD-START PRICING (con i parametri calibrati in ex2)
