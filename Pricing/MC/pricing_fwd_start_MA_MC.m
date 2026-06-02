@@ -140,25 +140,12 @@ function [price, CI] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sig
     % Compute the payoff matrix. Size will be (N_sim, N_K).
     % St2 and F_T1_T2 are expanded horizontally, K is expanded vertically.
     payoff = max(St2 - K .* F_T1_T2, 0);
+    discounted_payoff = df * payoff;
     
     % =========================================================================
     % STEP 5: FINAL PRICING AND CONFIDENCE INTERVAL (95%)
     % =========================================================================
-    % Calculate the mean and standard deviation along the first dimension (paths)
-    payoff_mean = mean(payoff, 1); % Size: (1, N_K)
-    payoff_std  = std(payoff, 0, 1); % Size: (1, N_K)
-    
-    % The final price is the discounted expected payoff
-    price = df * payoff_mean;
-    
-    % Standard Error = Standard Deviation / sqrt(N)
-    std_error = (df * payoff_std) / sqrt(N_sim);
-    
-    % 95% Confidence Interval bounds (Z-score = 1.96)
-    CI_lower = price - 1.96 * std_error;
-    CI_upper = price + 1.96 * std_error;
-    
-    CI = [CI_lower; CI_upper];
+    [price, ~, CI, ~] = normfit(discounted_payoff);
 
 end
 

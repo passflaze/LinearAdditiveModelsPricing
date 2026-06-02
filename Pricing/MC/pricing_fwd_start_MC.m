@@ -89,9 +89,8 @@ function [price, CI, diag] = pricing_fwd_start_MC(model, params, sigma_T1, sigma
             % --- payoff and MC estimator (vectorised over strikes) ---------
             K       = strike(:)';                      % 1 x N_K row
             payoff  = max(S_T2 - K .* F_T1_T2, 0);     % N_sim x N_K
-            price   = B_0_t2 * mean(payoff, 1);
-            std_err = B_0_t2 * std(payoff, 0, 1) / sqrt(N_sim);
-            CI      = [price - 1.96*std_err; price + 1.96*std_err];
+            discounted_payoff  = B_0_t2 * payoff;
+            [price, ~, CI, ~] = normfit(discounted_payoff);
 
             diag = struct('x_cond', x_2, 'cdf_cond', cdf_2, 'W', W);
 

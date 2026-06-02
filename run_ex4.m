@@ -199,23 +199,23 @@ function LA_results = run_ex4(params, market, diagnostics)
     % --- Call-on-Call Data ---
     prices_CoC_MC       = [price_GL; price_CoC_MA_MC; price_AB];
     prices_CoC_Analytic = [NaN;      price_CoC_MA_FULLanalytic; NaN];
-    IC_CoC              = [CI_GL;    CI_MA;           CI_AB];
+    IC_CoC              = [CI_GL, CI_MA, CI_AB]'; 
     CI_CoC_str          = compose('[%.4f, %.4f]', IC_CoC(:,1), IC_CoC(:,2));
     Err_CoC_bps         = (prices_CoC_Analytic - prices_CoC_MC) * 10000;
     
     % --- Put-on-Put Data ---
     prices_PoP_MC       = [price_PoP_GL; price_PoP_MA_MC; price_PoP_AB];
     prices_PoP_Analytic = [NaN;          price_PoP_MA_analytic; NaN]; 
-    IC_PoP              = [CI_PoP_GL;    CI_PoP_MA;       CI_PoP_AB];
+    IC_PoP              = [CI_PoP_GL, CI_PoP_MA, CI_PoP_AB]'; 
     CI_PoP_str          = compose('[%.4f, %.4f]', IC_PoP(:,1), IC_PoP(:,2));
     Err_PoP_bps         = (prices_PoP_Analytic - prices_PoP_MC) * 10000;  
     
     % --- Chooser Data ---
     prices_Ch_MC       = [price_Ch_GL;          price_Ch_MA_MC;       price_Ch_AB];
     prices_Ch_Analytic = [price_Ch_GL_analytic; price_Ch_MA_analytic; price_Ch_AB_analytic];
-    IC_Ch              = [CI_Ch_GL;             CI_Ch_MA;             CI_Ch_AB];
+    IC_Ch              = [CI_Ch_GL, CI_Ch_MA, CI_Ch_AB]'; 
     CI_Ch_str          = compose('[%.4f, %.4f]', IC_Ch(:,1), IC_Ch(:,2));
-    Err_Ch_bps         = (prices_Ch_Analytic - prices_Ch_MC) * 10000; 
+    Err_Ch_bps         = (prices_Ch_Analytic - prices_Ch_MC) * 10000;
     
     % --- Create and Display Table ---
     T = table(models, ...

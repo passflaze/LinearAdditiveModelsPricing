@@ -132,15 +132,14 @@ function [price, CI, ft1, call_price_t1] = CoC_pricing_MC(params, scale_factor, 
     compound_payoff_t1 = max(call_price_t1 - K1, 0);
     discounted_payoffs = discount_factors(1) * compound_payoff_t1;
     
-    price   = mean(discounted_payoffs);
-    std_err = std(discounted_payoffs) / sqrt(N_sim);
-    CI      = [price - 1.96 * std_err, price + 1.96 * std_err];
+    [price, sigma, CI, ~] = normfit(discounted_payoffs);
     
     if diagnostics
         fprintf('=================================================================\n');
         fprintf('  RESULTS — Model: %s\n', model);
         fprintf('  Price:  %.6f\n', price);
         fprintf('  95%% CI: [%.6f, %.6f]\n', CI(1), CI(2));
+        fprintf('  std:  %.6f\n', sigma);
         fprintf('=================================================================\n\n');
     end
 end
