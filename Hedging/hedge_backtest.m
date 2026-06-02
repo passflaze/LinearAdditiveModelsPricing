@@ -1,110 +1,141 @@
-function res = hedge_backtest(type, state0, positions0, tuesdays, dataOpts, mc, bumps, costRule)
-% HEDGE_BACKTEST  Static-with-rebalancing hedge check over the next Tuesdays.
+function res = hedge_backtest(type, contract, state0, positions0, tuesdays, dataOpts, mc, bumps, costRule)
+% HEDGE_BACKTEST  Self-financing-style hedge check over the next Tuesdays.
 %
-%   Builds the hedge at t0, then on each Tuesday re-observes the market,
-%   RE-CALIBRATES the AB model, reprices the exotic and the hedge book,
-%   rebalances the hedge and accumulates the bid-ask cost. Reports the P&L
-%   of the unhedged vs hedged book and the residual greeks.
+%   The book is LONG 1 exotic and SHORT the replicating hedge produced by
+%   build_hedge_AB (positions = quantities that replicate the exotic greeks;
+%   we hold the NEGATIVE of them to neutralise a long exotic). On each
+%   Tuesday the market is re-observed, the AB model is RE-CALIBRATED, the
+%   exotic and the hedge instruments are repriced, the realised step P&L is
+%   booked and the hedge is rebalanced (paying the bid-ask cost).
+%
+%   P&L convention (per step t_{k-1} -> t_k, hedge held = positions at t_{k-1}):
+%       dV_exotic   = V_ex(t_k) - V_ex(t_{k-1})
+%       dHedge      = nC*(C_k - C_{k-1}) + nP*(P_k - P_{k-1})
+%                                        + nF*(F_k - F_{k-1})   <- future is MtM
+%       PnL_unhedged = dV_exotic
+%       PnL_hedged   = dV_exotic - dHedge        (long exotic, short hedge)
+%   A well-hedged book leaves only theta + un-hedged skew/convexity in
+%   PnL_hedged, while PnL_unhedged carries the full directional move.
 %
 % INPUTS:
 %   type       - (string) 'CoC' | 'PoP' | 'Chooser'
+%   contract   - (struct) FIXED contract terms (strikes never change):
+%                  .K1 .K2 .Kc .Kp        option strikes
+%                  .E1 .E2                calendar expiries T1, T2 (datetime)
 %   state0     - (struct) inception state at t0:
-%                  .params_AB    [k; eta]
-%                  .scale_factor [scale_t1, scale_t2]
-%                  .mkt          (forward, K1, K2, df, Kc, Kp)   see price_exotic_AB
-%   positions0 - (struct) .nC .nP .nF  hedge set at t0 (from build_hedge_AB)
-%   tuesdays   - (Nx1 datetime) the value dates to test (next two Tuesdays)
-%   dataOpts   - (struct) .callpath .putpath .expiryFile  (for readData)
-%                          .iT1 .iT2  maturity indices of the (T1,T2) window
-%   mc         - (struct) MC settings  (see price_exotic_AB)
-%   bumps      - (struct) .dF .dSig
-%   costRule   - (struct) .fut_bp .opt_bp
+%                  .params_AB .scale_factor .mkt   (see price_exotic_AB)
+%   positions0 - (struct) .nC .nP .nF  hedge set at t0 (build_hedge_AB)
+%   tuesdays   - (Nx1 datetime) value dates to test (e.g. next two Tuesdays)
+%   dataOpts   - (struct) .callpath .putpath .expiryFile  (for run_ex2)
+%   mc, bumps, costRule - see greeks_exotic_AB / hedging_cost
 %
 % OUTPUT:
-%   res - (table) one row per date with columns:
-%         Date, V_exotic, V_hedge, PnL_unhedged, PnL_hedged,
-%         cost_step, cost_cum, res_delta, res_gamma, res_vega
+%   res - (table) one row per date:
+%         Date V_exotic PnL_unhedged PnL_hedged cost_step cost_cum
+%         res_delta res_gamma res_vega
 
-    % --- t0 quantities ---------------------------------------------------
-    V_exotic_0 = price_exotic_AB(type, state0.params_AB, state0.scale_factor, state0.mkt, mc);
-    V_hedge_0  = hedge_value(state0, positions0, mc);
-    cost_cum   = hedging_cost(positions0, state0.mkt.forward, costRule);   % inception cost
+    % --- Inception marks (t0) --------------------------------------------
+    prev = mark_state(type, state0, mc, bumps);
+    prev_pos  = positions0;
+    cost_cum  = hedging_cost(positions0, prev.F, costRule);   % set-up cost
 
-    prev_pos   = positions0;
-    nT         = numel(tuesdays);
-    rows       = cell(nT, 1);
+    PnL_unh_cum = 0;
+    PnL_hed_cum = 0;
+
+    nT   = numel(tuesdays);
+    rows = cell(nT, 1);
 
     for kk = 1:nT
         snap = tuesdays(kk);
 
         % --- Re-observe market & re-calibrate AB at this Tuesday ----------
-        state_k = recalibrate_AB(snap, dataOpts);   % see local function (TODO)
+        state_k = recalibrate_AB(snap, dataOpts, contract);
+        cur     = mark_state(type, state_k, mc, bumps);
 
-        % --- Reprice exotic and current hedge book -----------------------
-        V_exotic_k = price_exotic_AB(type, state_k.params_AB, state_k.scale_factor, state_k.mkt, mc);
-        V_hedge_k  = hedge_value(state_k, prev_pos, mc);    % OLD positions, NEW market
+        % --- Realised step P&L (hedge held over the step = prev_pos) ------
+        dV   = cur.Vex - prev.Vex;
+        dHed = prev_pos.nC*(cur.C - prev.C) ...
+             + prev_pos.nP*(cur.P - prev.P) ...
+             + prev_pos.nF*(cur.F - prev.F);          % future = mark-to-market
+        PnL_unh_cum = PnL_unh_cum + dV;
+        PnL_hed_cum = PnL_hed_cum + (dV - dHed);
 
-        % --- Greeks at Tuesday_k -> new hedge (rebalance) ----------------
-        gEx = greeks_exotic_AB(type, state_k.params_AB, state_k.scale_factor, state_k.mkt, mc, bumps);
-        gC  = greeks_vanilla_AB('call',   state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
-        gP  = greeks_vanilla_AB('put',    state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
-        gF  = greeks_vanilla_AB('future', state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
-        [pos_k, resG] = build_hedge_AB(gEx, gC, gP, gF);
+        % --- Rebalance: greeks at t_k -> new hedge -----------------------
+        gC = greeks_vanilla_AB('call',   state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
+        gP = greeks_vanilla_AB('put',    state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
+        gF = greeks_vanilla_AB('future', state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
+        [pos_k, resG] = build_hedge_AB(cur.gEx, gC, gP, gF);
 
-        % --- Rebalancing trade & cost ------------------------------------
         trade = struct('nC', pos_k.nC - prev_pos.nC, ...
                        'nP', pos_k.nP - prev_pos.nP, ...
                        'nF', pos_k.nF - prev_pos.nF);
-        cost_step = hedging_cost(trade, state_k.mkt.forward, costRule);
+        cost_step = hedging_cost(trade, cur.F, costRule);
         cost_cum  = cost_cum + cost_step;
 
-        % --- P&L of the book (long exotic, short hedge) ------------------
-        %   unhedged : just the exotic mark-to-market move
-        %   hedged   : exotic move minus hedge move (hedge held over the step)
-        PnL_unhedged = V_exotic_k - V_exotic_0;
-        PnL_hedged   = (V_exotic_k - V_exotic_0) - (V_hedge_k - V_hedge_0);
+        rows{kk} = {snap, cur.Vex, PnL_unh_cum, PnL_hed_cum, cost_step, cost_cum, ...
+                    resG.delta, resG.gamma, resG.vega};
 
-        rows{kk} = {snap, V_exotic_k, V_hedge_k, PnL_unhedged, PnL_hedged, ...
-                    cost_step, cost_cum, resG.delta, resG.gamma, resG.vega};
-
-        % roll forward: the rebalanced book becomes the reference for next step
-        prev_pos   = pos_k;
-        V_exotic_0 = V_exotic_k;
-        V_hedge_0  = hedge_value(state_k, pos_k, mc);
+        % roll forward
+        prev     = cur;
+        prev_pos = pos_k;
     end
 
     res = cell2table(vertcat(rows{:}), 'VariableNames', ...
-        {'Date','V_exotic','V_hedge','PnL_unhedged','PnL_hedged', ...
+        {'Date','V_exotic','PnL_unhedged','PnL_hedged', ...
          'cost_step','cost_cum','res_delta','res_gamma','res_vega'});
 end
 
 % =========================================================================
-function V = hedge_value(state, pos, mc) %#ok<INUSD>
-% Mark-to-market value of the hedge book (call + put + future) under `state`.
-    gC = greeks_vanilla_AB('call',   state.params_AB, state.scale_factor(2), state.mkt, []);
-    gP = greeks_vanilla_AB('put',    state.params_AB, state.scale_factor(2), state.mkt, []);
-    % Future MtM relative to its entry level is handled in P&L; here use spot F
-    % as the per-unit value (delta-1 instrument). TODO(Persona B): if you track
-    % the future entry price, value it as (F_now - F_entry); otherwise the
-    % linear future term cancels in the P&L differences below.
-    V = pos.nC * gC.price + pos.nP * gP.price + pos.nF * state.mkt.forward;
+function m = mark_state(type, state, mc, bumps)
+% Price the exotic (+ its greeks) and the two hedge vanillas + future level
+% under a given calibrated `state`. Returns one struct of marks.
+    gEx = greeks_exotic_AB(type, state.params_AB, state.scale_factor, state.mkt, mc, bumps);
+    gC  = greeks_vanilla_AB('call', state.params_AB, state.scale_factor(2), state.mkt, []);
+    gP  = greeks_vanilla_AB('put',  state.params_AB, state.scale_factor(2), state.mkt, []);
+    m = struct('Vex', gEx.price, 'gEx', gEx, ...
+               'C', gC.price, 'P', gP.price, 'F', state.mkt.forward);
 end
 
 % =========================================================================
-function state = recalibrate_AB(snapDate, dataOpts) %#ok<STOUT,INUSD>
-% TODO(Persona B): re-run EX1+EX2 on `snapDate` and pack the AB state.
-%   1) [strikes,calls,puts,expiries] = readData(dataOpts.callpath, ...
-%          dataOpts.putpath, snapDate, dataOpts.expiryFile);
-%   2) [params, market] = calibrate_surface(struct('valueDate',snapDate, ...));
-%          (or run_ex2 with the same opts used in run_project2A, verbose=false)
-%   3) Recompute the AB scale on the (iT1,iT2) window, exactly as run_ex4:
-%          I0  = I0_AB(0, params.AB);
-%          sig = market.sigma_ATM / I0;
-%          scale_factor = [sig(iT1)*sqrt(market.yf(iT1)), sig(iT2)*sqrt(market.yf(iT2))];
-%   4) Build mkt: forward = market.forward(iT2); K2 = forward; K1 unchanged;
-%          df = [market.discount_factor(iT1), market.discount_factor(iT2)];
-%          Kc, Kp = strikes of the hedge vanillas (keep them fixed from t0).
-%   Return state = struct('params_AB',..,'scale_factor',..,'mkt',..).
-    error('hedge_backtest:recalibrate_AB:notImplemented', ...
-        'recalibrate_AB is a TODO — wire it to readData + calibrate_surface.');
+function state = recalibrate_AB(snapDate, dataOpts, contract)
+% Re-run EX1+EX2 on `snapDate` and repack the AB state for the SAME exotic.
+%
+%   Maturities are matched by EXPIRY DATE (contract.E1, contract.E2), not by
+%   index: run_ex2 -> readData drops expired maturities and sorts by expiry,
+%   so the positional index of a fixed calendar expiry can shift between
+%   snapshots. The contract strikes (K1,K2,Kc,Kp) are FIXED terms and are
+%   carried over unchanged; only forward / discount / scale are refreshed
+%   (this is what makes theta show up in the hedged P&L).
+    opts = struct('callpath',   dataOpts.callpath, ...
+                  'putpath',     dataOpts.putpath, ...
+                  'expiryFile',  dataOpts.expiryFile, ...
+                  'valueDate',   snapDate, ...
+                  'verbose',     false, ...
+                  'plot',        false);
+    [params, market] = run_ex2(opts);
+
+    iT1 = match_maturity(market.expiries, contract.E1);
+    iT2 = match_maturity(market.expiries, contract.E2);
+
+    I0  = I0_AB(0, params.AB);
+    sig = market.sigma_ATM / I0;
+    scale_factor = [sig(iT1)*sqrt(market.yf(iT1)), sig(iT2)*sqrt(market.yf(iT2))];
+
+    mkt = struct('forward', market.forward(iT2), ...
+                 'K1', contract.K1, 'K2', contract.K2, ...
+                 'Kc', contract.Kc, 'Kp', contract.Kp, ...
+                 'df', [market.discount_factor(iT1), market.discount_factor(iT2)]);
+
+    state = struct('params_AB', params.AB, 'scale_factor', scale_factor, 'mkt', mkt);
+end
+
+% =========================================================================
+function idx = match_maturity(expiries, targetDate)
+% Index of the row in `expiries` whose calendar date equals targetDate.
+    [tol, idx] = min(abs(days(expiries - targetDate)));
+    if tol > 0.5
+        error('hedge_backtest:expiryNotFound', ...
+            'Target expiry %s not present at this snapshot (closest off by %.1f days).', ...
+            string(targetDate,'yyyy-MM-dd'), tol);
+    end
 end

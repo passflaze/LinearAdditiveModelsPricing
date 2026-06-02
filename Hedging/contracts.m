@@ -15,7 +15,15 @@
 %    .K1        compound strike       (scalar, CoC/PoP only)
 %    .K2        inner strike = F(T2,T2)
 %    .df        [B(t0,T1), B(t0,T2)]  (1x2)
-%    .Kc, .Kp   strikes of the hedge call / put (fixed from t0)
+%    .Kc, .Kp   strikes of the hedge call / put (fixed from t0).
+%               MUST be at different moneyness (Kc != Kp): a same-strike
+%               call/put pair is collinear in (gamma, vega) -> build_hedge_AB
+%               singular. run_ex6 snaps an OTM call and a further-OTM put.
+%
+%  contract : FIXED terms of one exotic+hedge, carried across snapshots
+%    .K1 .K2 .Kc .Kp   strikes (never change)
+%    .E1 .E2           calendar expiries T1, T2 (datetime), matched by DATE
+%                      inside recalibrate_AB (indices shift as maturities roll)
 %
 %  mc     : Monte Carlo settings (exotic pricers)
 %    .N_sim .M .dz .N_grid .seed      (.seed -> common random numbers)
@@ -35,6 +43,10 @@
 %
 %  state  : full per-date snapshot used by hedge_backtest
 %    .params_AB .scale_factor .mkt
+%
+%  P&L sign convention (hedge_backtest): book = LONG 1 exotic, SHORT the
+%  replicating hedge. The future enters the P&L as MARK-TO-MARKET,
+%  nF*(F_t - F_{t-1}), NOT as nF*F (a future has zero entry cost).
 %
 %  -----------------------------------------------------------------------
 %  OWNERSHIP

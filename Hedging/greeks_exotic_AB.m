@@ -51,6 +51,8 @@ function g = greeks_exotic_AB(type, params_AB, scale_factor, mkt, mc, bumps)
 
     vega = (V_Sup - V_Sdn) / (2 * bumps.dSig);   % per relative vol bump
 
+    fprintf('vega (per 1%% rel. shift) = %.4f\n', vega);
+
     % --- Pack -------------------------------------------------------------
     g = struct('price', V0, 'delta', delta, 'gamma', gamma, 'vega', vega);
 end

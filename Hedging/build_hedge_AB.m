@@ -28,9 +28,21 @@ function [positions, hedgeGreeks] = build_hedge_AB(exoticGreeks, gC, gP, gF)
          gC.gamma, gP.gamma];
     b = [exoticGreeks.vega; exoticGreeks.gamma];
 
-    % TODO(Persona B): guard against an ill-conditioned A (e.g. call & put with
-    % nearly identical vega/gamma if Kc == Kp). Use cond(A) and warn / regularise.
-    n = A \ b;
+    % Conditioning guard. A is singular when the call and put span the SAME
+    % (vega, gamma) direction: this happens exactly when Kc == Kp, because by
+    % put-call parity  P = C - (F-K)B  is linear in F and flat in sigma, so a
+    % same-strike put has IDENTICAL gamma and vega as the call (only the delta
+    % differs). Two strikes at different moneyness are therefore required.
+    kappaA = cond(A);
+    if kappaA > 1e8
+        warning('build_hedge_AB:illConditioned', ...
+            ['Hedge matrix nearly singular (cond = %.2e). Call and put carry ', ...
+             'collinear (gamma, vega) — pick strikes at clearly different ', ...
+             'moneyness (Kc ~= Kp). Falling back to pinv.'], kappaA);
+        n = pinv(A) * b;
+    else
+        n = A \ b;
+    end
     nC = n(1);
     nP = n(2);
 

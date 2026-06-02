@@ -76,8 +76,16 @@ LA_results = run_ex3(params, market);
 LA_results_es4 = run_ex4(params, market, false);
 
 %% =========================================================================
+%  EX 6 - RISK MANAGEMENT: delta-gamma-vega HEDGE degli esotici AB
+%         (CoC, PoP, Chooser) con call, put e future. Il 4o argomento abilita
+%         il backtest con ricalibrazione sui prossimi due martedi (piu lento).
+%  =========================================================================
+addpath("Hedging/");
+LA_results_es6 = run_ex6(params, market, true, true);
+
+%% =========================================================================
 %  DONE
 %  =========================================================================
 fprintf('\n=========================================================================\n');
-fprintf('  PROJECT 2A PIPELINE COMPLETED (EX2 calibration -> EX3 forward-start -> EX4 CoC-PoP-Chooser pricing).  \n');
+fprintf('  PROJECT 2A PIPELINE COMPLETED (EX2 -> EX3 -> EX4 -> EX6 hedging).  \n');
 fprintf('=========================================================================\n');
