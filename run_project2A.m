@@ -61,8 +61,8 @@ opts.callpath   = "Data/datacalls";
 opts.putpath    = "Data/dataputs";
 opts.expiryFile = "Data/Expiries_Futures.txt";
 opts.valueDate  = datetime(2020, 06, 02);
-opts.verbose    = false;    % report completo di calibrazione a video
-opts.plot       = false;    % plot delle distribuzioni implicite
+opts.verbose    = true;    % report completo di calibrazione a video
+opts.plot       = true;    % plot delle distribuzioni implicite
 
 [params, market] = run_ex2(opts);
 
@@ -78,7 +78,7 @@ LA_results_es4 = run_ex4(params, market, false);
 
 
 %% =========================================================================
-%  EX 6 - Hedging 
+%  EX 6 - HEDGIING 
 %  =========================================================================
 clc;
 

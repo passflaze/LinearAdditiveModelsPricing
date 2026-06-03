@@ -251,22 +251,42 @@ if opts.plot
         xtickformat('yyyy-MM-dd');
     end
 
-    % --- 7.2: Volatility Smiles Comparison ---
-    sigma_MA = sigma_ATM ./ I0_MA(params.MA);
-    sigma_AB = sigma_ATM ./ I0_AB(0, params.AB);
-    sigma_GL = sigma_ATM ./ I0_GL(params.GL);
-    
-    figure('Name', 'Volatility Smiles Comparison', 'Color', 'w');
+    % --- 7.2: Implied-volatility term structure at a fixed wing ---
+    % WARNING on the old plot: sigma_ATM ./ I0 is the *internal scale* sigma_t,
+    % NOT an implied volatility. I0 differs across models (it is just a
+    % normalization), so those curves are NOT comparable and, by construction,
+    % every model reproduces the SAME ATM vol (sigma_t * I0 = sigma_ATM). A
+    % meaningful "vs maturity" comparison must therefore be done at a NON-ATM
+    % moneyness: we price each model at a fixed dollar wing x0 = K - F and invert
+    % to the Bachelier implied vol. There the three models sit above the ATM line
+    % and their gap is the genuine smile/skew difference.
+    x0 = 20;                                  % fixed dollar moneyness K - F ($), OTM call wing
+    chi_w = x0 ./ (sigma_ATM .* sqrt(yf));    % (M x 1) per-maturity normalized moneyness at x0
+
+    % model call prices at (chi_w, each maturity) -> (M x 1) each
+    c_AB_w = price_AB(params.AB, discount_factor, yf, sigma_ATM, chi_w);
+    c_MA_w = price_MA(params.MA, discount_factor, yf, sigma_ATM, chi_w);
+    c_GL_w = price_GL(params.GL(1), params.GL(2), M, dz, ...
+                      discount_factor, sigma_ATM, yf, chi_w);
+
+    % invert to Bachelier implied vol (F - K = -x0 for every maturity)
+    fmk_w     = -x0 * ones(size(yf));
+    sigIV_AB  = bachelier_iv(c_AB_w, discount_factor, fmk_w, yf);
+    sigIV_MA  = bachelier_iv(c_MA_w, discount_factor, fmk_w, yf);
+    sigIV_GL  = bachelier_iv(c_GL_w, discount_factor, fmk_w, yf);
+
+    figure('Name', 'Implied-vol term structure at a fixed wing', 'Color', 'w');
     hold on;
-    plot(expiries, sigma_MA, 'r-', 'LineWidth', 1.5, 'DisplayName', 'MA Volatility');
-    plot(expiries, sigma_AB, 'b-', 'LineWidth', 1.5, 'DisplayName', 'AB Volatility');
-    plot(expiries, sigma_GL, 'g-', 'LineWidth', 1.5, 'DisplayName', 'GL Volatility');
-    plot(expiries, sigma_ATM, 'k--', 'LineWidth', 1.5, 'DisplayName', 'ATM Volatility');
+    plot(expiries, sigma_ATM, 'k--', 'LineWidth', 1.5, 'DisplayName', '\sigma_{ATM} (x=0)');
+    plot(expiries, sigIV_AB,  'b-',  'LineWidth', 1.5, 'DisplayName', sprintf('AB  (x=%g$)', x0));
+    plot(expiries, sigIV_MA,  'r-',  'LineWidth', 1.5, 'DisplayName', sprintf('MA  (x=%g$)', x0));
+    plot(expiries, sigIV_GL,  'g-',  'LineWidth', 1.5, 'DisplayName', sprintf('GL  (x=%g$)', x0));
     xlabel('Maturity');
-    ylabel('Implied Volatility');
-    title('Volatility Smiles Comparison vs ATM Volatility');
+    ylabel('Bachelier implied volatility ($)');
+    title(sprintf('Implied-vol term structure: ATM vs models at x = K-F = %g$', x0));
     legend('Location', 'best');
     grid on;
+    if isdatetime(expiries), xtickformat('yyyy-MM'); end
     hold off;
 
     % --- 7.3: Distributions and Implied Volatility Smile (Bachelier) ---
