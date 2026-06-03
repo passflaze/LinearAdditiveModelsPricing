@@ -37,6 +37,7 @@ addpath("Calibration/Calibration_MA/");
 addpath("Calibration/Calibration_GL/");
 addpath("Simulation/");
 addpath("Simulation/Simulation_MA/");
+addpath("Hedging/");
 
 %% =========================================================================
 %  EX 0 - PDF COMPARISON (MA / AB / GL) + AB MONTE CARLO VALIDATION
@@ -74,6 +75,37 @@ LA_results = run_ex3(params, market);
 %  EX 4 - CoC-PoP-Chooser PRICING (con i parametri calibrati in ex2)
 %  =========================================================================
 LA_results_es4 = run_ex4(params, market, false);
+
+
+%% =========================================================================
+%  EX 6 - Hedging 
+%  =========================================================================
+clc;
+
+maturity_index = struct();
+maturity_index.call = 4;
+maturity_index.put = 4;
+maturity_index.future = 4;
+
+Kcall = 'ATM';
+Kput = 'ATM';
+% Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
+% convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
+% point gives a clean central-difference signal.
+bump_sigma = 1e-2 * ones(8,1);
+
+CoC_euro = -1e6; 
+PoP_euro = 1e4; 
+Ch_euro  = -1e6;
+
+% The hedge basket is now 3 distinct vanilla strikes @ T2 (built inside
+% run_ex6), which spans Delta-Gamma-Vega. 'products' is kept for signature
+% compatibility but superseded by the vanilla basket.
+products = {'Call', 'Put'};
+greeks   = {'Delta', 'Gamma', 'Vega'};
+tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
+dynamic = true;
+LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_euro, PoP_euro, Ch_euro, products, greeks, tuesdays, dynamic);
 
 %% =========================================================================
 %  DONE

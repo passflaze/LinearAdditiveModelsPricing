@@ -1,85 +1,80 @@
-function g = greeks_vanilla_AB(instrument, params_AB, scale_factor_T, mkt, bumps)
-% GREEKS_VANILLA_AB  Price + Delta / Gamma / Vega of a hedging instrument.
+function g = greeks_vanilla_AB(instrument, K, maturity_index, params_AB, scale_factors, mkt, params_hedge, mc, bumps)
+% GREEKS_VANILLA_AB  Price + Delta / Gamma / Vega of a SINGLE hedging vanilla.
 %
-%   Building blocks of the hedge: plain-vanilla call, plain-vanilla put and
-%   the underlying future, all on maturity T2. Greeks use the SAME bump
-%   definitions as greeks_exotic_AB so that the ratios in build_hedge_AB are
-%   consistent.
+%   Building block of a multi-instrument vanilla hedge: a plain-vanilla call,
+%   a plain-vanilla put or the underlying future, at an explicit strike K and
+%   maturity leg. Greeks use the SAME bump definitions as greeks_exotic_AB so
+%   that the ratios in build_hedge are consistent (all quantities are t0 PV).
 %
 %       future : price = F,  delta = 1,  gamma = 0,  vega = 0
-%       call   : AB analytic price (Lewis-FFT, call_AB_FFT), FD Greeks
-%       put    : via put-call parity  P = C - (F - K) * B
+%       call   : AB analytic price (Lewis-FFT, discounted to t0), FD Greeks
+%       put    : via put-call parity  P = C + B * (K - F)
 %
 % INPUTS:
 %   instrument     - (string) 'call' | 'put' | 'future'
-%   params_AB      - (2x1) [k; eta]
-%   scale_factor_T - (scalar) sigma_t(T2)*sqrt(T2)  (same scale as exotic, leg 2)
-%   mkt            - (struct) .forward F(t0,T2)
-%                             .Kc / .Kp strikes of the hedge call / put
-%                             .df    [B(t0,T1), B(t0,T2)]  (uses B(t0,T2))
+%   K              - (scalar) strike (ignored for 'future')
+%   maturity_index - (scalar) maturity leg index (e.g. 4 for T2)
+%   params_AB      - (2x1)    [k; eta]
+%   scale_factors  - (vector) sigma_t .* sqrt(yf) per maturity
+%   mkt            - (struct) Market data
+%   params_hedge   - (struct) Hedging parameters (forward, ...)
+%   mc             - (struct) Monte Carlo/FFT parameters
 %   bumps          - (struct) .dF .dSig   (same as greeks_exotic_AB)
 %
 % OUTPUT:
-%   g - (struct) .price .delta .gamma .vega
+%   g - (struct) .kind .K .mat .price .delta .gamma .vega
 
-    if nargin < 5 || isempty(bumps)
+    if nargin < 9 || isempty(bumps)
         bumps = struct('dF', 0.5, 'dSig', 1e-2);
     end
 
-    B  = mkt.df(2);          % discount to T2
-    F  = mkt.forward;
+    B  = mkt.discount_factor(maturity_index); % discount to maturity
+    F  = mkt.forward(maturity_index);
+    scale_factor = scale_factors(maturity_index);
 
     switch lower(instrument)
         case 'future'
-            g = struct('price', F, 'delta', 1, 'gamma', 0, 'vega', 0);
+            g = struct('kind', 'future', 'K', NaN, 'mat', maturity_index, ...
+                       'price', F, 'delta', 1, 'gamma', 0, 'vega', 0);
             return;
-
         case 'call'
-            K = mkt.Kc;  isCall = true;
+            isCall = true;
         case 'put'
-            K = mkt.Kp;  isCall = false;
+            isCall = false;
         otherwise
-            error('greeks_vanilla_AB:badInstrument', ...
-                'Unknown instrument "%s".', instrument);
+            error('greeks_vanilla_AB:badInstrument', 'Unknown instrument "%s".', instrument);
     end
 
-    % --- Base + bumped prices (central FD), CRN not needed (analytic) -----
-    V0    = vanilla_AB_price(F,             K, scale_factor_T,              B, params_AB, isCall);
-    V_Fup = vanilla_AB_price(F + bumps.dF,  K, scale_factor_T,              B, params_AB, isCall);
-    V_Fdn = vanilla_AB_price(F - bumps.dF,  K, scale_factor_T,              B, params_AB, isCall);
-    V_Sup = vanilla_AB_price(F,             K, scale_factor_T*(1+bumps.dSig), B, params_AB, isCall);
-    V_Sdn = vanilla_AB_price(F,             K, scale_factor_T*(1-bumps.dSig), B, params_AB, isCall);
+    % --- Base + bumped CALL prices (central FD), discounted to t0 ----------
+    % lewis_FFT_call returns the UNDISCOUNTED (forward) call value, so we
+    % multiply by B to get a t0 PV in the SAME measure as the exotic prices.
+    % The 7th argument (=1) is the doubleshift flag; fwd_factor (9th) = 1.
+    C0    = B * lewis_FFT_call(@cf_AB, mc.M, mc.dz, params_AB, scale_factor, K - F,            1, 'AB');
+    C_Fup = B * lewis_FFT_call(@cf_AB, mc.M, mc.dz, params_AB, scale_factor, K - (F+bumps.dF), 1, 'AB');
+    C_Fdn = B * lewis_FFT_call(@cf_AB, mc.M, mc.dz, params_AB, scale_factor, K - (F-bumps.dF), 1, 'AB');
 
-    g = struct( ...
-        'price', V0, ...
-        'delta', (V_Fup - V_Fdn) / (2*bumps.dF), ...
-        'gamma', (V_Fup - 2*V0 + V_Fdn) / (bumps.dF^2), ...
-        'vega',  (V_Sup - V_Sdn) / (2*bumps.dSig));
-end
+    % --- Vega (Call Vega = Put Vega at the same strike) -------------------
+    vega = compute_vega_AB('vanilla', mkt, params_hedge, mc, bumps.dSig, maturity_index, K);
 
-% =========================================================================
-function price = vanilla_AB_price(F, K, scale_factor_T, B, params_AB, isCall)
-% Dollar price of a single AB vanilla, in the SAME scale convention used by
-% the exotic pricers (scale_factor_T = sigma_t*sqrt(T) = sigma_ATM*sqrt(T)/I0).
-%
-%   sigma_ATM*sqrt(T) = scale_factor_T * I0
-%   chi               = (K - F) / (sigma_ATM*sqrt(T))
-%   C(K)              = B * sigma_ATM*sqrt(T) * G(chi)         (Baviera-Massaria Eq.20)
-%
-% TODO(Persona A): sanity-check this against call_ATM_vanilla at K = F:
-%   vanilla_AB_price(F,F,s,B,p,true) must equal call_ATM_vanilla(p,s,B,'AB').
-    k   = params_AB(1);
-    eta = params_AB(2);
-    I0  = I0_AB(0, params_AB);
-
-    sigATM_sqrtT = scale_factor_T * I0;
-    chi          = (K - F) / sigATM_sqrtT;
-    G            = call_AB_FFT(chi, k, eta, I0);
-    call         = B * sigATM_sqrtT * G;
-
+    % --- Put-Call Parity Adjustments (all quantities are t0 PV) -----------
     if isCall
-        price = call;
+        V0    = C0;
+        V_Fup = C_Fup;
+        V_Fdn = C_Fdn;
     else
-        price = call - (F - K) * B;   % put-call parity in the forward measure
+        % Put-Call Parity in t0 PV: P = C + B(t0,T) * (K - F)
+        V0    = C0    + B * (K - F);
+        V_Fup = C_Fup + B * (K - (F + bumps.dF));
+        V_Fdn = C_Fdn + B * (K - (F - bumps.dF));
     end
+
+    % --- Final Greeks Assembly --------------------------------------------
+    g = struct( ...
+        'kind',  lower(instrument), ...
+        'K',     K, ...
+        'mat',   maturity_index, ...
+        'price', V0, ...
+        'delta', (V_Fup - V_Fdn) / (2 * bumps.dF), ...
+        'gamma', (V_Fup - 2 * V0 + V_Fdn) / (bumps.dF^2), ...
+        'vega',  vega);
 end

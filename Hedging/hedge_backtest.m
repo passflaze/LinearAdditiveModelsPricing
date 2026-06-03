@@ -1,110 +1,201 @@
-function res = hedge_backtest(type, state0, positions0, tuesdays, dataOpts, mc, bumps, costRule)
-% HEDGE_BACKTEST  Static-with-rebalancing hedge check over the next Tuesdays.
-%
-%   Builds the hedge at t0, then on each Tuesday re-observes the market,
-%   RE-CALIBRATES the AB model, reprices the exotic and the hedge book,
-%   rebalances the hedge and accumulates the bid-ask cost. Reports the P&L
-%   of the unhedged vs hedged book and the residual greeks.
+function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, greeks)
+% HEDGE_BACKTEST  Static vs Dynamic backtest of a generic vanilla-basket hedge.
 %
 % INPUTS:
-%   type       - (string) 'CoC' | 'PoP' | 'Chooser'
-%   state0     - (struct) inception state at t0:
-%                  .params_AB    [k; eta]
-%                  .scale_factor [scale_t1, scale_t2]
-%                  .mkt          (forward, K1, K2, df, Kc, Kp)   see price_exotic_AB
-%   positions0 - (struct) .nC .nP .nF  hedge set at t0 (from build_hedge_AB)
-%   tuesdays   - (Nx1 datetime) the value dates to test (next two Tuesdays)
-%   dataOpts   - (struct) .callpath .putpath .expiryFile  (for readData)
-%                          .iT1 .iT2  maturity indices of the (T1,T2) window
-%   mc         - (struct) MC settings  (see price_exotic_AB)
-%   bumps      - (struct) .dF .dSig
-%   costRule   - (struct) .fut_bp .opt_bp
+%   state_t0    - (struct) .V_exotic, .V_hedge, .w (Nx1 weights), .cost_t0
+%   opts_array  - (struct array) options for run_ex2 (contains valueDate)
+%   prc_params  - (struct) pricing setup, including .basket (Nx1 specs)
+%   hedge_rules - (struct) .is_dynamic, .tol_delta/gamma/vega, .costRule
+%   greeks      - (cell array) targeted Greeks, e.g. {'Delta','Gamma','Vega'}
 %
 % OUTPUT:
-%   res - (table) one row per date with columns:
-%         Date, V_exotic, V_hedge, PnL_unhedged, PnL_hedged,
-%         cost_step, cost_cum, res_delta, res_gamma, res_vega
+%   res         - (struct) PnL, costs and residual Greeks history.
 
-    % --- t0 quantities ---------------------------------------------------
-    V_exotic_0 = price_exotic_AB(type, state0.params_AB, state0.scale_factor, state0.mkt, mc);
-    V_hedge_0  = hedge_value(state0, positions0, mc);
-    cost_cum   = hedging_cost(positions0, state0.mkt.forward, costRule);   % inception cost
+    N_steps = length(opts_array);
 
-    prev_pos   = positions0;
-    nT         = numel(tuesdays);
-    rows       = cell(nT, 1);
+    % Relative rebalancing tolerance: rebalance a Greek when the residual
+    % exceeds rel_tol * |exotic Greek| (hedge error > rel_tol of gross exposure).
+    if ~isfield(hedge_rules, 'rel_tol'), hedge_rules.rel_tol = 0.05; end
 
-    for kk = 1:nT
-        snap = tuesdays(kk);
+    % Initialize results arrays
+    res.PnL         = zeros(N_steps, 1);   % hedged book (exotic + hedge)
+    res.PnL_exotic  = zeros(N_steps, 1);   % UNHEDGED (exotic only)
+    res.PnL_hedge   = zeros(N_steps, 1);   % hedge leg only
+    res.Costs       = zeros(N_steps, 1);
+    res.Net_PnL     = zeros(N_steps, 1);
+    res.Book_Delta  = zeros(N_steps, 1);
+    res.Book_Gamma  = zeros(N_steps, 1);
+    res.Book_Vega   = zeros(N_steps, 1);
 
-        % --- Re-observe market & re-calibrate AB at this Tuesday ----------
-        state_k = recalibrate_AB(snap, dataOpts);   % see local function (TODO)
+    % Day-0 hedging slippage (cost of opening the static hedge).
+    if isfield(state_t0, 'cost_t0'), t0_cost = state_t0.cost_t0; else, t0_cost = 0; end
 
-        % --- Reprice exotic and current hedge book -----------------------
-        V_exotic_k = price_exotic_AB(type, state_k.params_AB, state_k.scale_factor, state_k.mkt, mc);
-        V_hedge_k  = hedge_value(state_k, prev_pos, mc);    % OLD positions, NEW market
+    % Track previous step's state
+    old_V_exotic = state_t0.V_exotic;
+    old_V_hedge  = state_t0.V_hedge;
+    w_hedge      = state_t0.w(:);       % (N x 1) basket weights
+    basket       = prc_params.basket;
 
-        % --- Greeks at Tuesday_k -> new hedge (rebalance) ----------------
-        gEx = greeks_exotic_AB(type, state_k.params_AB, state_k.scale_factor, state_k.mkt, mc, bumps);
-        gC  = greeks_vanilla_AB('call',   state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
-        gP  = greeks_vanilla_AB('put',    state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
-        gF  = greeks_vanilla_AB('future', state_k.params_AB, state_k.scale_factor(2), state_k.mkt, bumps);
-        [pos_k, resG] = build_hedge_AB(gEx, gC, gP, gF);
+    fprintf('\n--- INITIAL PORTFOLIO STATE (t0) ---\n');
+    fprintf('  Exotic Portfolio Value : %+.4e\n', state_t0.V_exotic);
+    fprintf('  Hedge Portfolio Value  : %+.4e\n', state_t0.V_hedge);
 
-        % --- Rebalancing trade & cost ------------------------------------
-        trade = struct('nC', pos_k.nC - prev_pos.nC, ...
-                       'nP', pos_k.nP - prev_pos.nP, ...
-                       'nF', pos_k.nF - prev_pos.nF);
-        cost_step = hedging_cost(trade, state_k.mkt.forward, costRule);
-        cost_cum  = cost_cum + cost_step;
+    for k = 1:N_steps
+        current_date = opts_array(k).valueDate;
 
-        % --- P&L of the book (long exotic, short hedge) ------------------
-        %   unhedged : just the exotic mark-to-market move
-        %   hedged   : exotic move minus hedge move (hedge held over the step)
-        PnL_unhedged = V_exotic_k - V_exotic_0;
-        PnL_hedged   = (V_exotic_k - V_exotic_0) - (V_hedge_k - V_hedge_0);
+        fprintf('\n======================================================\n');
+        fprintf(' EVALUATING TIME STEP %d: %s\n', k, datestr(current_date));
+        fprintf('======================================================\n');
 
-        rows{kk} = {snap, V_exotic_k, V_hedge_k, PnL_unhedged, PnL_hedged, ...
-                    cost_step, cost_cum, resG.delta, resG.gamma, resG.vega};
+        % -----------------------------------------------------------------
+        % STEP 1: MARKET RECALIBRATION (Silenced)
+        % -----------------------------------------------------------------
+        opts_current = opts_array(k);
+        [~, params, market] = evalc('run_ex2(opts_current)');
 
-        % roll forward: the rebalanced book becomes the reference for next step
-        prev_pos   = pos_k;
-        V_exotic_0 = V_exotic_k;
-        V_hedge_0  = hedge_value(state_k, pos_k, mc);
+        iT1 = prc_params.iT1;
+        iT2 = prc_params.iT2;
+
+        I0_AB_val  = I0_AB(0, params.AB);
+        sigma_t_AB = market.sigma_ATM / I0_AB_val;
+
+        scale_factor_exotic  = [sigma_t_AB(iT1)*sqrt(market.yf(iT1)), sigma_t_AB(iT2)*sqrt(market.yf(iT2))];
+        scale_factor_vanilla = sigma_t_AB .* sqrt(market.yf);
+
+        % Forward F(t0,T2) used by the exotic pricer / vega recalibration.
+        prc_params.params_hedge.forward = market.forward(iT2);
+
+        % -----------------------------------------------------------------
+        % STEP 2: REPRICE EXOTIC PORTFOLIO (Silenced)
+        % -----------------------------------------------------------------
+        nE = numel(prc_params.exotics);
+        G_exotic = repmat(struct('price',0,'delta',0,'gamma',0,'vega',0), nE, 1);
+
+        for ee = 1:nE
+            [~, G_exotic(ee)] = evalc('greeks_exotic_AB(prc_params.exotics{ee}, params.AB, scale_factor_exotic, market, prc_params.params_hedge, prc_params.mc, prc_params.bumps)');
+        end
+
+        w_exo = prc_params.w_exotics;
+        port_exotic = struct('price',0, 'delta',0, 'gamma',0, 'vega',0);
+        for ee = 1:nE
+            port_exotic.price = port_exotic.price + w_exo(ee) * G_exotic(ee).price;
+            port_exotic.delta = port_exotic.delta + w_exo(ee) * G_exotic(ee).delta;
+            port_exotic.gamma = port_exotic.gamma + w_exo(ee) * G_exotic(ee).gamma;
+            port_exotic.vega  = port_exotic.vega  + w_exo(ee) * G_exotic(ee).vega;
+        end
+        new_V_exotic = port_exotic.price;
+
+        % -----------------------------------------------------------------
+        % STEP 3: REPRICE HEDGING BASKET (Silenced)
+        % -----------------------------------------------------------------
+        instr   = price_hedge_basket(basket, params.AB, scale_factor_vanilla, market, ...
+                                     prc_params.params_hedge, prc_params.mc, prc_params.bumps);
+        prices  = [instr.price]';
+        i_delta = [instr.delta]';
+        i_gamma = [instr.gamma]';
+        i_vega  = [instr.vega]';
+
+        % Mark-to-market value of the existing hedge basket.
+        current_V_old_hedge = w_hedge' * prices;
+
+        % -----------------------------------------------------------------
+        % STEP 4: GROSS P&L OF THE HEDGED BOOK
+        % -----------------------------------------------------------------
+        fprintf('  Exotic Portfolio MTM : %+.4e\n', new_V_exotic);
+        fprintf('  Hedge Portfolio MTM  : %+.4e\n', current_V_old_hedge);
+
+        dPnL_exotic = new_V_exotic - old_V_exotic;
+        dPnL_hedge  = current_V_old_hedge - old_V_hedge;
+
+        res.PnL_exotic(k) = dPnL_exotic;          % unhedged
+        res.PnL_hedge(k)  = dPnL_hedge;
+        res.PnL(k)        = dPnL_exotic + dPnL_hedge;
+        fprintf('  Unhedged P&L (exotic): %+.4e\n', dPnL_exotic);
+        fprintf('  Gross P&L over period: %+.4e\n', res.PnL(k));
+
+        % -----------------------------------------------------------------
+        % STEP 5: DYNAMIC HEDGING CHECK (REBALANCING)
+        % -----------------------------------------------------------------
+        book = struct( ...
+            'delta', port_exotic.delta + w_hedge' * i_delta, ...
+            'gamma', port_exotic.gamma + w_hedge' * i_gamma, ...
+            'vega',  port_exotic.vega  + w_hedge' * i_vega);
+
+        res.Book_Delta(k) = book.delta;
+        res.Book_Gamma(k) = book.gamma;
+        res.Book_Vega(k)  = book.vega;
+        fprintf('  Residual Book Delta  : %+.4e\n', book.delta);
+        fprintf('  Residual Book Gamma  : %+.4e\n', book.gamma);
+        fprintf('  Residual Book Vega   : %+.4e\n', book.vega);
+
+        transaction_cost = 0;
+
+        % Trigger if ANY targeted Greek's residual exceeds rel_tol of the
+        % gross exotic exposure to that Greek.
+        breach = false;
+        for gi = 1:numel(greeks)
+            gn  = lower(greeks{gi});
+            tol = hedge_rules.rel_tol * abs(port_exotic.(gn));
+            if abs(book.(gn)) > tol
+                breach = true;
+                fprintf('  %s residual %+.2e exceeds %.0f%% of exposure (tol %.2e).\n', ...
+                        greeks{gi}, book.(gn), 100*hedge_rules.rel_tol, tol);
+            end
+        end
+
+        if hedge_rules.is_dynamic && breach
+            fprintf('  Rebalancing...\n');
+
+            [~, w_new, ~] = evalc('build_hedge(port_exotic, instr, greeks)');
+
+            trade_qty = w_new - w_hedge;
+
+            costs = hedging_cost(trade_qty, instr, hedge_rules.costRule);
+            transaction_cost = costs.slippage;
+
+            fprintf('  Rebalanced! Slippage: $%+.4e | Premium: $%+.4e | Total Cash Flow: $%+.4e\n', ...
+                    costs.slippage, costs.premium, costs.total);
+
+            w_hedge = w_new;
+        end
+
+        % -----------------------------------------------------------------
+        % STEP 6: STORE RESULTS AND UPDATE STATES
+        % -----------------------------------------------------------------
+        res.Costs(k)   = transaction_cost;
+        res.Net_PnL(k) = res.PnL(k) - transaction_cost;
+
+        old_V_exotic = new_V_exotic;
+        old_V_hedge  = w_hedge' * prices;   % post-rebalance weights at current prices
     end
 
-    res = cell2table(vertcat(rows{:}), 'VariableNames', ...
-        {'Date','V_exotic','V_hedge','PnL_unhedged','PnL_hedged', ...
-         'cost_step','cost_cum','res_delta','res_gamma','res_vega'});
-end
+    % Fold the day-0 hedge opening cost into the totals.
+    res.Cost_t0       = t0_cost;
+    total_costs       = sum(res.Costs) + t0_cost;
+    total_net_pnl     = sum(res.Net_PnL) - t0_cost;
+    res.Total_Net_PnL = total_net_pnl;
 
-% =========================================================================
-function V = hedge_value(state, pos, mc) %#ok<INUSD>
-% Mark-to-market value of the hedge book (call + put + future) under `state`.
-    gC = greeks_vanilla_AB('call',   state.params_AB, state.scale_factor(2), state.mkt, []);
-    gP = greeks_vanilla_AB('put',    state.params_AB, state.scale_factor(2), state.mkt, []);
-    % Future MtM relative to its entry level is handled in P&L; here use spot F
-    % as the per-unit value (delta-1 instrument). TODO(Persona B): if you track
-    % the future entry price, value it as (F_now - F_entry); otherwise the
-    % linear future term cancels in the P&L differences below.
-    V = pos.nC * gC.price + pos.nP * gP.price + pos.nF * state.mkt.forward;
-end
+    % Unhedged benchmark: just holding the exotic portfolio (no hedge, no cost).
+    res.Total_Unhedged_PnL = sum(res.PnL_exotic);
 
-% =========================================================================
-function state = recalibrate_AB(snapDate, dataOpts) %#ok<STOUT,INUSD>
-% TODO(Persona B): re-run EX1+EX2 on `snapDate` and pack the AB state.
-%   1) [strikes,calls,puts,expiries] = readData(dataOpts.callpath, ...
-%          dataOpts.putpath, snapDate, dataOpts.expiryFile);
-%   2) [params, market] = calibrate_surface(struct('valueDate',snapDate, ...));
-%          (or run_ex2 with the same opts used in run_project2A, verbose=false)
-%   3) Recompute the AB scale on the (iT1,iT2) window, exactly as run_ex4:
-%          I0  = I0_AB(0, params.AB);
-%          sig = market.sigma_ATM / I0;
-%          scale_factor = [sig(iT1)*sqrt(market.yf(iT1)), sig(iT2)*sqrt(market.yf(iT2))];
-%   4) Build mkt: forward = market.forward(iT2); K2 = forward; K1 unchanged;
-%          df = [market.discount_factor(iT1), market.discount_factor(iT2)];
-%          Kc, Kp = strikes of the hedge vanillas (keep them fixed from t0).
-%   Return state = struct('params_AB',..,'scale_factor',..,'mkt',..).
-    error('hedge_backtest:recalibrate_AB:notImplemented', ...
-        'recalibrate_AB is a TODO — wire it to readData + calibrate_surface.');
+    fprintf('\n=== BACKTEST COMPLETE ===\n');
+    fprintf('Total Gross P&L     : %+.4e\n', sum(res.PnL));
+    fprintf('Day-0 hedging cost  : %+.4e\n', t0_cost);
+    fprintf('Rebalancing costs   : %+.4e\n', sum(res.Costs));
+    fprintf('Total Costs         : %+.4e\n', total_costs);
+    fprintf('Total Net P&L       : %+.4e\n', total_net_pnl);
+
+    fprintf('\n--- HEDGED vs UNHEDGED ---\n');
+    fprintf('Unhedged P&L (exotic only)   : %+.4e\n', res.Total_Unhedged_PnL);
+    fprintf('Hedged Net P&L (after costs) : %+.4e\n', total_net_pnl);
+    % Per-step P&L volatility: the real point of hedging is variance reduction.
+    if N_steps >= 2
+        std_unhedged = std(res.PnL_exotic);
+        std_hedged   = std(res.Net_PnL);
+        res.Std_Unhedged = std_unhedged;
+        res.Std_Hedged   = std_hedged;
+        fprintf('Std of step P&L  unhedged    : %.4e\n', std_unhedged);
+        fprintf('Std of step P&L  hedged      : %.4e   (variance reduction: %.1f%%)\n', ...
+                std_hedged, 100 * (1 - std_hedged / max(std_unhedged, eps)));
+    end
 end

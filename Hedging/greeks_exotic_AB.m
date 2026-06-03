@@ -1,4 +1,4 @@
-function g = greeks_exotic_AB(type, params_AB, scale_factor, mkt, mc, bumps)
+function g = greeks_exotic_AB(type, params_AB, scale_factor, market, params_hedge, mc, bumps)
 % GREEKS_EXOTIC_AB  Delta / Gamma / Vega of an AB exotic by bump-and-revalue.
 %
 %   Central finite differences on price_exotic_AB. All revaluations share the
@@ -30,26 +30,23 @@ function g = greeks_exotic_AB(type, params_AB, scale_factor, mkt, mc, bumps)
 %   hedge ratios are consistent (the units cancel in build_hedge_AB).
 
     if nargin < 6 || isempty(bumps)
-        bumps = struct('dF', 0.5, 'dSig', 1e-2);
+        bumps = struct('dF', 1e-4, 'dSig', 1e-4);
     end
 
     % --- Base price -------------------------------------------------------
-    V0 = price_exotic_AB(type, params_AB, scale_factor, mkt, mc);
+    V0 = price_exotic_AB(type, params_AB, scale_factor, market,params_hedge, mc);
 
     % --- Delta & Gamma : bump the forward ---------------------------------
-    mkt_up = mkt;  mkt_up.forward = mkt.forward + bumps.dF;
-    mkt_dn = mkt;  mkt_dn.forward = mkt.forward - bumps.dF;
-    V_Fup = price_exotic_AB(type, params_AB, scale_factor, mkt_up, mc);
-    V_Fdn = price_exotic_AB(type, params_AB, scale_factor, mkt_dn, mc);
+    params_up = params_hedge;  params_up.forward = params_hedge.forward + bumps.dF;
+    params_down = params_hedge;  params_down.forward = params_hedge.forward - bumps.dF;
+    V_Fup = price_exotic_AB(type, params_AB, scale_factor, market,params_up, mc);
+    V_Fdn = price_exotic_AB(type, params_AB, scale_factor, market,params_down, mc);
 
     delta = (V_Fup - V_Fdn) / (2 * bumps.dF);
     gamma = (V_Fup - 2*V0 + V_Fdn) / (bumps.dF^2);
 
-    % --- Vega : multiplicative bump on the (normalized) scale -------------
-    V_Sup = price_exotic_AB(type, params_AB, scale_factor*(1 + bumps.dSig), mkt, mc);
-    V_Sdn = price_exotic_AB(type, params_AB, scale_factor*(1 - bumps.dSig), mkt, mc);
-
-    vega = (V_Sup - V_Sdn) / (2 * bumps.dSig);   % per relative vol bump
+    
+    vega = compute_vega_AB(type, market,params_hedge, mc, bumps.dSig);
 
     % --- Pack -------------------------------------------------------------
     g = struct('price', V0, 'delta', delta, 'gamma', gamma, 'vega', vega);
