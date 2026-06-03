@@ -38,13 +38,13 @@ function cf_inc = cf_increment_GL(u, params, scale_factor, fwd_factor)
     nan_mask = isnan(cf_inc) | isinf(cf_inc);
     n_bad    = nnz(nan_mask);
 
-    if n_bad > 0
-        n_nan = nnz(isnan(cf_inc));
-        n_inf = nnz(isinf(cf_inc));
-        warning('cf_increment_GL:NumericalInstability', ...
-            '%d non-finite values in incremental CF (NaN: %d, Inf: %d) out of %d. Set to 0.', ...
-            n_bad, n_nan, n_inf, numel(cf_inc));
-    end
+    %if n_bad > 0
+    %    n_nan = nnz(isnan(cf_inc));
+    %    n_inf = nnz(isinf(cf_inc));
+     %   warning('cf_increment_GL:NumericalInstability', ...
+      %      '%d non-finite values in incremental CF (NaN: %d, Inf: %d) out of %d. Set to 0.', ...
+       %     n_bad, n_nan, n_inf, numel(cf_inc));
+    %end
 
     cf_inc(nan_mask) = 0;
 

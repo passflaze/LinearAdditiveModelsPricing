@@ -46,22 +46,16 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
 %           the MA branch.
     
     if N_sim == 0
-        % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
-        [~, ~, ~, sigma_est] = pricing_fwd_start_MC(model, params, sigma_T1, sigma_T2, ...
-        1000, M, dz, forward, B_0_t1, B_0_t2, strike);
-        
-        target_error = 10 * 1e-4; 
-       
-        N_sim_array = ceil(((1.96 * sigma_est) / target_error).^2);
-        N_sim = min(max(N_sim_array), 1e7);
-        
-        % Verification print
-        fprintf('--- PILOT SIMULATION ---\n');
-        % Display the max sigma if it's an array to keep the print clean
-        fprintf('Estimated Std Dev: %.4f (max across strikes)\n', max(sigma_est));
-        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
-        fprintf('Required N_sim:    %d\n', N_sim);
-        fprintf('------------------------\n');
+        % Accuracy sizing decoupled into size_Nsim_MC and cached on disk: the
+        % pilot (which also rebuilds the FFT CDFs) runs ONCE per (model, inputs)
+        % and is reused. size_Nsim_MC sizes to the worst strike (max sigma).
+        % Target = 10 bps market-maker spread (Ex.4).
+        sig_inputs = [params(:); sigma_T1; sigma_T2; forward; B_0_t1; B_0_t2; ...
+                      strike(:); M; dz];
+        N_sim = size_Nsim_MC( ...
+            @(Np) nth_out(4, @pricing_fwd_start_MC, model, params, sigma_T1, sigma_T2, ...
+                          Np, M, dz, forward, B_0_t1, B_0_t2, strike), ...
+            sprintf('fwdstart_%s', upper(model)), sig_inputs, struct('ref', forward));
     end
 
     % Lemma 2 (Forward.pdf): F(T1,T2) = forward + fwd_factor * f_{T1,T1}.

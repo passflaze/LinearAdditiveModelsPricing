@@ -63,8 +63,8 @@ function [cdf_fine, x_fine] = tail_adjustment(x_grid, cdf_raw, refinement_factor
     
     inversions_spline = sum(diff(cdf_test_spline) < 0);
     if inversions_spline > 0
-        fprintf('2. [WARNING] Spline interpolation caused %d monotonicity violations (oscillations).\n', inversions_spline);
-        fprintf('   -> Automatic fallback to ''pchip'' applied to enforce monotonicity.\n');
+        % Spline introduced monotonicity violations: silently fall back to
+        % pchip, which is shape-preserving and cannot oscillate.
         cdf_fine(core_mask) = interp1(x_core, cdf_core, x_fine(core_mask), 'pchip');
     else
         fprintf('2. Spline interpolation successful: No monotonicity violations detected.\n');
