@@ -55,18 +55,10 @@ function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, 
     % 1.1 Asymmetry factor
     gamma_MA = (1/alpha_MA) - (1/beta_MA);
 
-    % Model parameters as a column vector [alpha; beta] for the unified engine
-    % (lewis_FFT_digital / conditional_cf_MA_FA / cf_MA_IA).
+    % Model parameters as a column vector 
     params = [alpha_MA; beta_MA];
    
     % 1.4 Tail decay parameters for t1 (s) and t2 (t).
-    % Lemma 2 (Forward.pdf): the t1->t2 increment belongs to the SAME-expiry
-    % forward F(.,T2), whose reset value is f_{T1,T2} = fwd_factor*f_{T1,T1}.
-    % Hence the SUBTRACTED (s = t1) leg of the increment carries the rescaled
-    % scale sigma_s = fwd_factor*sigmat(1), i.e. poles ps_+- = a,b/sigma_s (the
-    % original poles divided by fwd_factor). This mirrors phi_t1(fwd_factor*u)
-    % in cf_increment_AB/GL. The 0->t1 base leg below keeps the TRUE marginal
-    % scale sigmat(1), since it samples f_{T1,T1} directly.
     sigmat_s = fwd_factor * sigmat(1);
 
     ps_plus  = beta_MA  / sigmat_s;
@@ -76,8 +68,6 @@ function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, 
     pt_minus = alpha_MA / sigmat(2);
 
     % 1.5 Drift vector calculation
-    % drift(1): 0 -> t1 base leg, TRUE marginal scale sigmat(1).
-    % drift(2): t1 -> t2 increment, Lemma-2 rescaled s leg (sigma_s).
     drift_0_t1  = gamma_MA * (sigmat(1) - 0);
     drift_t1_t2 = gamma_MA * (sigmat(2) - sigmat_s);
     

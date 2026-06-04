@@ -22,7 +22,6 @@ function y = conditional_cf_MA_FA(u, params, scale_factor)
 %   Outputs:
 %       y        - Complex characteristic function values evaluated at each U
 %
-
     ps_plus = params(2)/scale_factor(1); ps_minus = params(1)/scale_factor(1);
     pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
 

@@ -30,16 +30,18 @@ function cf_inc = cf_MA_FA(u, params, scale_factor, fwd_factor)
         fwd_factor = 1;
     end
 
+    scale_factor(1) = scale_factor(1)*fwd_factor;
+    
     ps_plus = params(2)/scale_factor(1); ps_minus = params(1)/scale_factor(1);
     pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
     gamma_MA = (1 / params(1)) - (1 /params(2));
-    deltamu = gamma_MA * (scale_factor(2) - fwd_factor * scale_factor(1));
+    deltamu = gamma_MA * (scale_factor(2) - scale_factor(1));
 
     % 1. Point mass probability 'c' (ratio of normalizing constants)
     c = (pt_plus * pt_minus) / (ps_plus * ps_minus);
 
     % 2. Complex rational fraction (numerator from s with u -> fwd*u, denom from t)
-    numerator   = (ps_plus - 1i * fwd_factor * u) .* (ps_minus + 1i * fwd_factor * u);
+    numerator   = (ps_plus - 1i *  u) .* (ps_minus + 1i *  u);
     denominator = (pt_plus - 1i * u) .* (pt_minus + 1i * u);
 
     % 3. Deterministic drift phase shift

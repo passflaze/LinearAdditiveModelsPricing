@@ -28,12 +28,7 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
         doplot = false;
     end
 
-    % Use the largest scale ONLY for the damping shift. The CF itself must
-    % receive the full scale_factors argument untouched: single-time CFs
-    % (cf_MA_IA, cf_GL, cf_AB) collapse it internally, but the two-time MA
-    % finite-activity increment CF (conditional_cf_MA_FA) genuinely needs
-    % both scale_factors(1)=sigma_s and scale_factors(2)=sigma_t. Collapsing
-    % to max() here silently destroyed the s-leg and broke forward-start MC.
+    % Use the largest scale ONLY for the damping shift. 
     scale_factor = max(scale_factors);
     % --- FFT grid setup ---
     N  = 2^M;

@@ -46,10 +46,7 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
 %           the MA branch.
     
     if N_sim == 0
-        % Accuracy sizing decoupled into size_Nsim_MC and cached on disk: the
-        % pilot (which also rebuilds the FFT CDFs) runs ONCE per (model, inputs)
-        % and is reused. size_Nsim_MC sizes to the worst strike (max sigma).
-        % Target = 10 bps market-maker spread (Ex.4).
+        % Accuracy sizing decoupled into size_Nsim_MC and cached on disk
         sig_inputs = [params(:); sigma_T1; sigma_T2; forward; B_0_t1; B_0_t2; ...
                       strike(:); M; dz];
         N_sim = size_Nsim_MC( ...
