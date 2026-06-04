@@ -127,6 +127,10 @@ function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sig
                'have the same length.'], nP, numel(hedge_moneyness), numel(hedge_mat));
     end
 
+    % Target strike = ATM forward(leg) + $ offset, then SNAP to the nearest
+    % quoted strike so the hedge instruments are actually tradable. Price and
+    % Greeks stay AB (model-consistent with the exotic); at a calibrated strike
+    % the AB price ~ market mid.
     basket = repmat(struct('kind', '', 'K', NaN, 'mat', NaN), nP, 1);
     for j = 1:nP
         kind = lower(products{j});
@@ -134,9 +138,23 @@ function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sig
         if strcmpi(kind, 'future')
             Kj = NaN;                                   % strike irrelevant
         else
-            Kj = market.forward(matj) + hedge_moneyness(j);   % ATM(leg) + $ offset
+            K_target  = market.forward(matj) + hedge_moneyness(j);
+            [~, idx]  = min(abs(market.strikes(:) - K_target));
+            Kj        = market.strikes(idx);            % nearest quoted strike
+            fprintf('  leg %d (%s): target K=%.4g (F+%.4g) -> quoted K=%.4g\n', ...
+                    j, kind, K_target, hedge_moneyness(j), Kj);
         end
         basket(j) = struct('kind', kind, 'K', Kj, 'mat', matj);
+    end
+
+    % Warn if snapping collapsed two vanilla legs onto the SAME (kind,K,mat):
+    % they would be identical instruments -> rank-deficient hedge.
+    vkey = arrayfun(@(b) sprintf('%s_%.6g_%d', b.kind, b.K, b.mat), basket, 'uni', 0);
+    if numel(unique(vkey)) < nP
+        warning('run_ex6:DuplicateStrikes', ...
+            ['Snapping collapsed two legs onto the same quoted strike: the ', ...
+             'basket has redundant instruments. Spread the hedge_moneyness ', ...
+             'values further apart.']);
     end
 
     fprintf('Computing initial Greeks for the hedging basket...\n');
