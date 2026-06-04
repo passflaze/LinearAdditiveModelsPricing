@@ -55,9 +55,9 @@ if ~isfield(opts, 'verbose'),    opts.verbose    = false;                       
 if ~isfield(opts, 'plot'),       opts.plot       = false;                       end
 
 vb = @(varargin) verbose_print(opts.verbose, varargin{:});
-vb('=========================================================================\n');
-vb('             VOLATILITY SURFACE CALIBRATION ENGINE                       \n');
-vb('=========================================================================\n\n');
+fprintf('=========================================================================\n');
+fprintf('             VOLATILITY SURFACE CALIBRATION ENGINE                       \n');
+fprintf('=========================================================================\n\n');
 
 %% =========================================================================
 % STEP 1: DATA LOADING AND BOOTSTRAPPING

@@ -1,4 +1,4 @@
-function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, scale_factor, N_sim, M, dz, N_grid, forward, K2, discount_factors, model, opts)
+function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, scale_factor, N_sim, M, dz, forward, K2, discount_factors, model, opts)
 % CHOOSER_PRICING_MC  Computes the Chooser-option price via semi-analytic
 %                     Monte Carlo under the MA, GL, or AB model.
 %
@@ -29,7 +29,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
 %   call_price_t1   - (vector) inner call prices at t1 for each path
 
     % --- Options Initialization ---
-    if nargin < 12 || isempty(opts)
+    if nargin < 11 || isempty(opts)
         opts = struct();
     end
     if ~isfield(opts, 'verbose')
@@ -55,16 +55,17 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
     if N_sim == 0
         % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
         [~, ~, ~, ~, sigma_est] = Chooser_pricing_MC(params, scale_factor, 1000, M, ...
-            dz, N_grid, forward, K2, discount_factors, model);
+            dz, forward, K2, discount_factors, model);
         target_error = 10 * 1e-4; 
         N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 5e7);
         
-        % Verification print
-        fprintf('--- PILOT SIMULATION ---\n');
-        fprintf('Estimated Std Dev: %.4f\n', sigma_est);
-        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
-        fprintf('Required N_sim:    %d\n', N_sim);
-        fprintf('------------------------\n');
+        if opts.verbose
+            fprintf('--- PILOT SIMULATION ---\n');
+            fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+            fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+            fprintf('Required N_sim:    %d\n', N_sim);
+            fprintf('------------------------\n');
+        end
     end
     
 
@@ -97,7 +98,6 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
             
             if opts.verbose
                 fprintf('        drift_0_t1 = %.6f  |  std_T1 = %.6f\n', drift_0_t1, std_T1);
-                fprintf('        z_grid_std: [%.4f, %.4f]  (%d points)\n', z_grid_std(1), z_grid_std(end), N_grid);
             end
             
             ft1 = FA_simulation(N_sim, M, dz, drift_0_t1, ...
@@ -114,7 +114,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
             ft1        = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);
         case 'AB'
             % params(1) = k (kappa), params(2) = eta
-            M=20;
+            
             [cdf_fT1, z_grid]    = lewis_FFT_digital(@cf_AB, M, dz, params, ...
                              scale_factor(1), 1, 'AB', 1, opts.plot);
                              

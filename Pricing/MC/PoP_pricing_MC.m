@@ -1,4 +1,4 @@
-function [price, CI, ft1, put_price_t1, sigma] = PoP_pricing_MC(params, scale_factor, N_sim, M, dz, N_grid, forward, K1, K2, discount_factors, model, opts)
+function [price, CI, ft1, put_price_t1, sigma] = PoP_pricing_MC(params, scale_factor, N_sim, M, dz, forward, K1, K2, discount_factors, model, opts)
 % POP_PRICING_MC  Computes the Put-on-Put price via semi-analytic Monte Carlo
 %                 under the MA, GL, or AB model.
 %
@@ -29,7 +29,7 @@ function [price, CI, ft1, put_price_t1, sigma] = PoP_pricing_MC(params, scale_fa
 %   put_price_t1    - (vector) inner put prices at t1 for each path
 
     % --- Options Initialization ---
-    if nargin < 12 || isempty(opts)
+    if nargin < 11 || isempty(opts)
         opts = struct();
     end
     if ~isfield(opts, 'verbose')
@@ -52,17 +52,18 @@ function [price, CI, ft1, put_price_t1, sigma] = PoP_pricing_MC(params, scale_fa
     % end
     if N_sim == 0
         % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
-        [~, ~, ~, ~, sigma_est] = PoP_pricing_MC(params, scale_factor, 1000, M, dz, N_grid, forward, ...
+        [~, ~, ~, ~, sigma_est] = PoP_pricing_MC(params, scale_factor, 1000, M, dz, forward, ...
             K1, K2, discount_factors, model);
         target_error = 10 * 1e-4; 
         N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 5e7);
         
-        % Verification print
-        fprintf('--- PILOT SIMULATION ---\n');
-        fprintf('Estimated Std Dev: %.4f\n', sigma_est);
-        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
-        fprintf('Required N_sim:    %d\n', N_sim);
-        fprintf('------------------------\n');
+        if opts.verbose
+            fprintf('--- PILOT SIMULATION ---\n');
+            fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+            fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+            fprintf('Required N_sim:    %d\n', N_sim);
+            fprintf('------------------------\n');
+        end
     end
     
     % Lemma 2 (Forward.pdf): F(T1,T2) = forward + fwd_factor * f_{T1,T1}.

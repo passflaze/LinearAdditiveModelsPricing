@@ -44,15 +44,17 @@ function LA_results = run_ex4(params, market, opts)
     T1  = yf(iT1);  
     T2  = yf(iT2);
     fprintf('  Pricing window: t1 = %.4f y (idx %d), t2 = %.4f y (idx %d)\n\n', T1, iT1, T2, iT2);
-    
-    M      = 16;
-    dz     = 5e-3;
-    N_sim  = 5e7;
-    N_grid = 300;
+  
     
     F_t0_t2 = forward(iT2);
-    K2      = F_t0_t2;          % ATM strike for vanilla call
-    K1      = 1;                % Compound option strike
+
+    if (ischar(opts.K2) || isstring(opts.K2)) && strcmpi(opts.K2, 'ATM')
+        K2 = F_t0_t2;
+    else
+        K2 = opts.K2;
+    end
+
+    K1      = opts.K1;                
     df      = [discount_factor(iT1), discount_factor(iT2)];
     B_0_t2  = discount_factor(iT2);
     
@@ -70,24 +72,27 @@ function LA_results = run_ex4(params, market, opts)
     I0_opt_GL        = I0_GL(params_GL);
     sigma_t_GL       = sigma_ATM / I0_opt_GL;
     scale_factor_GL  = [sigma_t_GL(iT1)*sqrt(yf(iT1)), sigma_t_GL(iT2)*sqrt(yf(iT2))];
+    M_GL = opts.mc.M_GL;
+    Nsim_GL = opts.mc.Nsim_GL;
+    dz_GL = opts.mc.dz_GL;
     
     rng(1234);
     fprintf('\n  > Computing Call-on-Call (MC)...\n');
     [price_GL, CI_GL, ft1_GL, call_price_t1_GL] = CoC_pricing_MC( ...
-        params_GL, scale_factor_GL, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'GL', opts_local);
+        params_GL, scale_factor_GL, Nsim_GL, M_GL, dz_GL, F_t0_t2, K1, K2, df, 'GL', opts_local);
         
     fprintf('\n  > Computing Put-on-Put (MC)...\n');
     [price_PoP_GL, CI_PoP_GL, ft1_PoP_GL, put_price_t1_GL] = PoP_pricing_MC( ...
-        params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'GL');
+        params_GL, scale_factor_GL, Nsim_GL, M_GL, dz_GL, F_t0_t2, K1, K2, df, 'GL');
         
     fprintf('\n  > Computing Chooser (MC)...\n');
     [price_Ch_GL, CI_Ch_GL, ft1_Ch_GL, call_price_Ch_t1_GL] = Chooser_pricing_MC( ...
-        params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'GL', opts_local);
+        params_GL, scale_factor_GL, Nsim_GL, M_GL, dz_GL, F_t0_t2, K2, df, 'GL', opts_local);
         
     fprintf('  > Computing Sanity Checks (K1=0 CoC & Chooser Analytic)...\n\n');
     rng(1234);
     [price_CoC_K1zero_GL, ~] = CoC_pricing_MC( ...
-        params_GL, scale_factor_GL, 0, M, dz, N_grid, F_t0_t2, 0, K2, df, 'GL');
+        params_GL, scale_factor_GL, Nsim_GL, M_GL, dz_GL, F_t0_t2, 0, K2, df, 'GL');
     [price_ATM_GL] = call_ATM_vanilla(params_GL, scale_factor_GL(2), B_0_t2, 'GL');
     
     if chooser_sanity_enabled
@@ -104,11 +109,15 @@ function LA_results = run_ex4(params, market, opts)
     I0_opt_MA        = I0_MA(params_MA);
     sigma_t_MA       = sigma_ATM / I0_opt_MA;
     scale_factor_MA  = [sigma_t_MA(iT1)*sqrt(yf(iT1)), sigma_t_MA(iT2)*sqrt(yf(iT2))];
+
+    M_MA = opts.mc.M_MA;
+    Nsim_MA = opts.mc.Nsim_MA;
+    dz_MA = opts.mc.dz_MA;    
     
     rng(1234);
     fprintf('\n  > Computing Call-on-Call (MC, Semi-Analytic, Fully Analytic)...\n');
     [price_CoC_MA_MC, CI_MA, ft1_MA, call_price_t1_MA] = CoC_pricing_MC( ...
-        params_MA, scale_factor_MA, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA', opts_local);
+        params_MA, scale_factor_MA, Nsim_MA, M_MA, dz_MA, F_t0_t2, K1, K2, df, 'MA', opts_local);
 
     price_CoC_MA_analytic = CoC_pricing_analytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
     price_CoC_MA_FULLanalytic = CoC_pricing_FULLanalytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
@@ -126,23 +135,23 @@ function LA_results = run_ex4(params, market, opts)
     
     fprintf('\n  > Computing Put-on-Put (MC & Analytical)...\n');
     [price_PoP_MA_MC, CI_PoP_MA, ft1_PoP_MA, put_price_t1_MA] = PoP_pricing_MC( ...
-        params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA');
+        params_MA, scale_factor_MA, Nsim_MA, M_MA, dz_MA, F_t0_t2, K1, K2, df, 'MA');
     price_PoP_MA_analytic = PoP_pricing_analytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
     
     fprintf('\n  > Computing Chooser (MC & Analytical)...\n');
     [price_Ch_MA_MC, CI_Ch_MA, ft1_Ch_MA, call_price_Ch_t1_MA] = Chooser_pricing_MC( ...
-        params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'MA', opts_local);
+        params_MA, scale_factor_MA,Nsim_MA, M_MA, dz_MA, F_t0_t2, K2, df, 'MA', opts_local);
     price_Ch_MA_analytic = Chooser_pricing_analytic(params_MA, scale_factor_MA, df, F_t0_t2, K2);
     
     if isfield(opts, 'verbose') && opts.verbose
         K_eval = linspace(-10, 10, 20);
         fprintf('\n>>> 1. FINITE ACTIVITY INCREMENT (Delta f)\n');
         fprintf('Comparing analytical formula vs FFT Lewis inversion...\n');
-        comparison_function_increments_MA(params_MA, scale_factor_MA, df, M, dz, K_eval, F_t0_t2);
+        comparison_function_increments_MA(params_MA, scale_factor_MA, df, M_MA, dz_MA, K_eval, F_t0_t2);
         
         fprintf('\n>>> 2. INFINITE ACTIVITY MARGINAL (f_t)\n');
         fprintf('Comparing analytical formula vs FFT Lewis inversion...\n');
-        comparison_function_marginals_MA(params_MA, scale_factor_MA, df, M, dz, K_eval);
+        comparison_function_marginals_MA(params_MA, scale_factor_MA, df, M_MA, dz_MA, K_eval);
     end
     fprintf('\n');
 
@@ -152,24 +161,29 @@ function LA_results = run_ex4(params, market, opts)
     I0_opt_AB        = I0_AB(0, params_AB);
     sigma_t_AB       = sigma_ATM / I0_opt_AB;
     scale_factor_AB  = [sigma_t_AB(iT1)*sqrt(yf(iT1)), sigma_t_AB(iT2)*sqrt(yf(iT2))];
+
+    M_AB = opts.mc.M_AB;
+    Nsim_AB = opts.mc.Nsim_AB;
+    dz_AB = opts.mc.dz_AB;
+
     
     rng(1234);
     fprintf('\n  > Computing Call-on-Call (MC)...\n');
     [price_AB, CI_AB, ft1_AB, call_price_t1_AB] = CoC_pricing_MC( ...
-        params_AB, scale_factor_AB, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'AB', opts_local);
+        params_AB, scale_factor_AB, Nsim_AB, M_AB, dz_AB, F_t0_t2, K1, K2, df, 'AB', opts_local);
         
     fprintf('\n  > Computing Put-on-Put (MC)...\n');
     [price_PoP_AB, CI_PoP_AB, ft1_PoP_AB, put_price_t1_AB] = PoP_pricing_MC( ...
-        params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'AB');
+        params_AB, scale_factor_AB, Nsim_AB, M_AB, dz_AB, F_t0_t2, K1, K2, df, 'AB');
         
     fprintf('\n  > Computing Chooser (MC)...\n');
     [price_Ch_AB, CI_Ch_AB, ft1_Ch_AB, call_price_Ch_t1_AB] = Chooser_pricing_MC( ...
-        params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'AB', opts_local);
+        params_AB, scale_factor_AB, Nsim_AB, M_AB, dz_AB, F_t0_t2, K2, df, 'AB', opts_local);
         
     fprintf('\n  > Computing Sanity Checks (K1=0 CoC & Chooser Analytic)...\n\n');
     rng(1234);
     [price_CoC_K1zero_AB, ~] = CoC_pricing_MC( ...
-        params_AB, scale_factor_AB, 0, M, dz, N_grid, F_t0_t2, 0, K2, df, 'AB');
+        params_AB, scale_factor_AB, Nsim_AB, M_AB, dz_AB, F_t0_t2, 0, K2, df, 'AB');
     [price_ATM_AB] = call_ATM_vanilla(params_AB, scale_factor_AB(2), B_0_t2, 'AB');
     
     if chooser_sanity_enabled
@@ -302,11 +316,11 @@ function LA_results = run_ex4(params, market, opts)
         % --- Call-on-Call Plot ---
         fprintf('\n--- Computing Prices for Plotting CoC ---\n');
         rng(1234);
-        [price_AB_plot_CoC, ~, ~, ~] = CoC_pricing_MC(params_AB, scale_factor_AB, 0, M, dz, N_grid, forward(iT2), K1_vec, K2, df, 'AB');
+        [price_AB_plot_CoC, ~, ~, ~] = CoC_pricing_MC(params_AB, scale_factor_AB, 0, M, dz, forward(iT2), K1_vec, K2, df, 'AB');
         rng(1234);
-        [price_GL_plot_CoC, ~, ~, ~] = CoC_pricing_MC(params_GL, scale_factor_GL, 0, M, dz, N_grid, forward(iT2), K1_vec, K2, df, 'GL');
+        [price_GL_plot_CoC, ~, ~, ~] = CoC_pricing_MC(params_GL, scale_factor_GL, 0, M, dz, forward(iT2), K1_vec, K2, df, 'GL');
         rng(1234);
-        [price_MA_plot_CoC, ~, ~, ~] = CoC_pricing_MC(params_MA, scale_factor_MA, 0, M, dz, N_grid, forward(iT2), K1_vec, K2, df, 'MA');
+        [price_MA_plot_CoC, ~, ~, ~] = CoC_pricing_MC(params_MA, scale_factor_MA, 0, M, dz, forward(iT2), K1_vec, K2, df, 'MA');
         
         figure('Name', 'Call-on-Call Prices vs Strike', 'Color', 'white');
         hold on; grid on;
@@ -324,11 +338,11 @@ function LA_results = run_ex4(params, market, opts)
         % --- Put-on-Put Plot ---
         fprintf('\n--- Computing Prices for Plotting PoP ---\n');
         rng(1234);
-        [price_AB_plot_PoP, ~, ~, ~] = PoP_pricing_MC(params_AB, scale_factor_AB, 0, M, dz, N_grid, forward(iT2), K1_vec, K2, df, 'AB');
+        [price_AB_plot_PoP, ~, ~, ~] = PoP_pricing_MC(params_AB, scale_factor_AB, 0, M, dz, forward(iT2), K1_vec, K2, df, 'AB');
         rng(1234);
-        [price_GL_plot_PoP, ~, ~, ~] = PoP_pricing_MC(params_GL, scale_factor_GL, 0, M, dz, N_grid, forward(iT2), K1_vec, K2, df, 'GL');
+        [price_GL_plot_PoP, ~, ~, ~] = PoP_pricing_MC(params_GL, scale_factor_GL, 0, M, dz, forward(iT2), K1_vec, K2, df, 'GL');
         rng(1234);
-        [price_MA_plot_PoP, ~, ~, ~] = PoP_pricing_MC(params_MA, scale_factor_MA, 0, M, dz, N_grid, forward(iT2), K1_vec, K2, df, 'MA');
+        [price_MA_plot_PoP, ~, ~, ~] = PoP_pricing_MC(params_MA, scale_factor_MA, 0, M, dz, forward(iT2), K1_vec, K2, df, 'MA');
         
         figure('Name', 'Put-on-Put Prices vs Strike', 'Color', 'white');
         hold on; grid on;

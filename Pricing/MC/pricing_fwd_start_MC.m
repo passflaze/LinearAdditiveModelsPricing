@@ -75,12 +75,13 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
         N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 5e6);
 
         
-        % Verification print
-        fprintf('--- PILOT SIMULATION ---\n');
-        fprintf('Estimated Std Dev: %.4f\n', sigma_est);
-        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
-        fprintf('Required N_sim:    %d\n', N_sim);
-        fprintf('------------------------\n');
+        if opts.verbose
+            fprintf('--- PILOT SIMULATION ---\n');
+            fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+            fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+            fprintf('Required N_sim:    %d\n', N_sim);
+            fprintf('------------------------\n');
+        end
     end
 
     % Lemma 2
