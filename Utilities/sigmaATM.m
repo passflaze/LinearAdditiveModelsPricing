@@ -1,4 +1,4 @@
-function sigma = sigmaATM(c_atm, B, yf, expiries)
+function sigma = sigmaATM(c_atm, B, yf, expiries, doPlot)
 % SIGMAATM  Bachelier ATM implied volatility from market call prices.
 %
 %   sigma = SIGMAATM(c_atm, B, yf) inverts the Bachelier call formula at
@@ -19,9 +19,20 @@ function sigma = sigmaATM(c_atm, B, yf, expiries)
 %     B        : discount factors  (output of bootstrap.m)
 %     yf       : year fractions to each maturity (act/365)
 %     expiries : (optional) datetime vector of expiry dates, used as x-axis labels
+%     doPlot   : (optional) boolean variables to govern the plot
 %
 %   Output
 %     sigma : Bachelier ATM implied volatilities (column vector)
+
+
+% --- Arguments Initialization ---
+if nargin < 5 || isempty(doPlot)
+    doPlot = false;
+end
+if nargin < 4 || isempty(expiries)
+    expiries = [];
+end
+% -----------------------------------------
 
 c_atm = c_atm(:);
 B     = B(:);
@@ -29,17 +40,22 @@ yf    = yf(:);
 
 sigma = sqrt(2*pi ./ yf) .* (c_atm ./ B);
 
-figure;
-if nargin == 4
-    plot(expiries, sigma, 'o-', 'LineWidth', 1.5, 'MarkerFaceColor', 'auto');
-    xtickformat('MMM-yy');
-    xlabel('Expiry');
-else
-    plot(yf, sigma, 'o-', 'LineWidth', 1.5, 'MarkerFaceColor', 'auto');
-    xlabel('Time to maturity (yf)');
+% --- Plotting Block ---
+    if doPlot
+        figure('Name', 'Bachelier ATM Implied Volatility', 'Color', 'white');
+        
+        if ~isempty(expiries)
+            plot(expiries, sigma, 'o-', 'LineWidth', 1.5, 'MarkerFaceColor', 'auto');
+            xtickformat('MMM-yy');
+            xlabel('Expiry', 'Interpreter', 'latex');
+        else
+            plot(yf, sigma, 'o-', 'LineWidth', 1.5, 'MarkerFaceColor', 'auto');
+            xlabel('Time to maturity (yf)', 'Interpreter', 'latex');
+        end
+        
+        ylabel('$\sigma^{ATM}$ (\$/unit)', 'Interpreter', 'latex');
+        title('Bachelier ATM Implied Volatility — Term Structure', 'Interpreter', 'latex');
+        grid on;
+    end
 end
-ylabel('\sigma^{ATM} ($/unit)');
-title('Bachelier ATM Implied Volatility — Term Structure');
-grid on;
 
-end

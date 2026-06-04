@@ -51,7 +51,7 @@ if ~isfield(opts, 'x_min'),      opts.x_min      = -30;                         
 if ~isfield(opts, 'x_max'),      opts.x_max      =  30;                         end
 if ~isfield(opts, 'M'),          opts.M          = 15;                          end
 if ~isfield(opts, 'dz'),         opts.dz         = 2.5e-3;                       end
-if ~isfield(opts, 'verbose'),    opts.verbose    = true;                        end
+if ~isfield(opts, 'verbose'),    opts.verbose    = false;                        end
 if ~isfield(opts, 'plot'),       opts.plot       = false;                       end
 
 vb = @(varargin) verbose_print(opts.verbose, varargin{:});
@@ -103,7 +103,7 @@ for i = 1:length(forward)
     c_ATM(i) = callATM(current_calls, current_puts, strikes, forward(i), discount_factor(i));
 end
 
-sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries);
+sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries, opts.plot);
 check_term_structure(sigma_ATM, yf, expiries);
 
 x_min = opts.x_min;
@@ -252,14 +252,6 @@ if opts.plot
     end
 
     % --- 7.2: Implied-volatility term structure at a fixed wing ---
-    % WARNING on the old plot: sigma_ATM ./ I0 is the *internal scale* sigma_t,
-    % NOT an implied volatility. I0 differs across models (it is just a
-    % normalization), so those curves are NOT comparable and, by construction,
-    % every model reproduces the SAME ATM vol (sigma_t * I0 = sigma_ATM). A
-    % meaningful "vs maturity" comparison must therefore be done at a NON-ATM
-    % moneyness: we price each model at a fixed dollar wing x0 = K - F and invert
-    % to the Bachelier implied vol. There the three models sit above the ATM line
-    % and their gap is the genuine smile/skew difference.
     x0 = 20;                                  % fixed dollar moneyness K - F ($), OTM call wing
     chi_w = x0 ./ (sigma_ATM .* sqrt(yf));    % (M x 1) per-maturity normalized moneyness at x0
 

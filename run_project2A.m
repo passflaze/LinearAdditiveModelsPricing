@@ -65,7 +65,8 @@ opts.valueDate  = datetime(2020, 06, 02);
 opts.verbose    = false;    % report completo di calibrazione a video
 opts.plot       = false;    % plot delle distribuzioni implicite
 
-[params, market] = run_ex2(opts);
+[params, market] = run_ex2(opts);   %%DA CAMBIARE METTIAMO SOLO IL PRINT DELLA CHIAMATA ALLA FUNZIONE E DEI PARAMETRI FINALI 
+
 
 %% =========================================================================
 %  EX 3 - FORWARD-START PRICING (con i parametri calibrati in ex2)
