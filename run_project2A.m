@@ -98,7 +98,7 @@ maturity_index.put = 4;
 maturity_index.future = 4;
 
 Kcall = 'ATM';
-Kput = 'ATM';
+Kput = 'ATM'; % check if ATM is dynamic
 % Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
 % convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
 % point gives a clean central-difference signal.

@@ -22,7 +22,7 @@ function g = price_hedge_basket(basket, params_AB, scale_factor_vanilla, mkt, pa
 
     for j = 1:N
         % evalc keeps the console clean (suppresses any calibration penalties)
-        [~, g(j)] = evalc(['greeks_vanilla_AB(basket(j).kind, basket(j).K, basket(j).mat, ', ...
-                           'params_AB, scale_factor_vanilla, mkt, params_hedge, mc, bumps)']);
+        g(j) = greeks_vanilla_AB(basket(j).kind, basket(j).K, basket(j).mat, ...
+                           params_AB, scale_factor_vanilla, mkt, params_hedge, mc, bumps);
     end
 end

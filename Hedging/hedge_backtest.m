@@ -51,7 +51,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         % STEP 1: MARKET RECALIBRATION (Silenced)
         % -----------------------------------------------------------------
         opts_current = opts_array(k);
-        [~, params, market] = evalc('run_ex2(opts_current)');
+        [params, market] = run_ex2(opts_current);
 
         iT1 = prc_params.iT1;
         iT2 = prc_params.iT2;
@@ -72,7 +72,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         G_exotic = repmat(struct('price',0,'delta',0,'gamma',0,'vega',0), nE, 1);
 
         for ee = 1:nE
-            [~, G_exotic(ee)] = evalc('greeks_exotic_AB(prc_params.exotics{ee}, params.AB, scale_factor_exotic, market, prc_params.params_hedge, prc_params.mc, prc_params.bumps)');
+            G_exotic(ee) = greeks_exotic_AB(prc_params.exotics{ee}, params.AB, scale_factor_exotic, market, prc_params.params_hedge, prc_params.mc, prc_params.bumps);
         end
 
         w_exo = prc_params.w_exotics;
@@ -146,7 +146,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         if hedge_rules.is_dynamic && breach
             fprintf('  Rebalancing...\n');
 
-            [~, w_new, ~] = evalc('build_hedge(port_exotic, instr, greeks)');
+            [w_new, ~] = build_hedge(port_exotic, instr, greeks);
 
             trade_qty = w_new - w_hedge;
 

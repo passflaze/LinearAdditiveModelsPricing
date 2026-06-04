@@ -27,8 +27,6 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     addpath(genpath('Calibration/'));
     addpath(genpath('Hedging/'));
 
-    % Disable figure pop-ups for the entire execution to speed it up
-    set(0, 'DefaultFigureVisible', 'off');
 
     fprintf('=========================================================================\n');
     fprintf('        EX.6 - RISK MANAGEMENT: AB EXOTICS DELTA-GAMMA-VEGA HEDGE        \n');
@@ -46,7 +44,7 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     opts.plot       = false;    
 
     fprintf('Calibrating market data...\n');
-    [~, params, market] = evalc('run_ex2(opts)');
+    [params, market] = run_ex2(opts);
 
     % Time indices
     iT1 = 2;  
@@ -131,7 +129,7 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     port_t0_price = 0; port_delta = 0; port_gamma = 0; port_vega = 0;
 
     for ee = 1:nE
-        [~, G(ee)] = evalc('greeks_exotic_AB(active_exotics{ee}, params.AB, scale_factor_exotic, market, params_hedge, mc, bumps)');
+        G(ee) = greeks_exotic_AB(active_exotics{ee}, params.AB, scale_factor_exotic, market, params_hedge, mc, bumps);
 
         % Signed quantity: |budget| sets the size, sign sets long/short.
         w_exotics(ee) = sign(active_budgets(ee)) * floor(abs(active_budgets(ee)) / G(ee).price);
@@ -220,11 +218,7 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     LA_results_es6.Cost      = costs.total;
     LA_results_es6.Backtest  = Backtest_Results;
 
-    % Destroy any hidden plots created in memory
-    close all hidden;
 
-    % Re-enable normal plot visibility
-    set(0, 'DefaultFigureVisible', 'on');
 
     fprintf('\nExecution completed successfully. Results packed in LA_results_es6.\n');
 end
