@@ -1,23 +1,21 @@
 function y = conditional_cf_MA_FA(u, params, scale_factor)
-%CONDITIONAL_CF_MA_FA Computes the conditional characteristic function of a single jump.
-%   Y = CONDITIONAL_CF_MA_FA(U, PT_PLUS, PT_MINUS, PS_PLUS, PS_MINUS) calculates the 
-%   characteristic function of individual jumps, phi_J(u), conditional on 
-%   at least one jump occurring within the Minimal Additive (MA) framework.
+%CONDITIONAL_CF_MA_FA Conditional-on-jump CF of the MA finite-activity increment.
+%   Y = CONDITIONAL_CF_MA_FA(U, PARAMS, SCALE_FACTOR) returns the CF of the MA
+%   increment over [s, t] CONDITIONAL on at least one jump occurring, i.e.
+%   (full increment CF - atom)/(1 - atom), where the atom is the no-jump point
+%   mass c = (pt_plus*pt_minus)/(ps_plus*ps_minus). The tail decays are derived
+%   internally from the parameters and the two scale factors.
 %
-%   This conditional characteristic function is crucial for finite-activity 
-%   Lévy-driven formulations because it naturally vanishes at infinity 
-%   (lim_{|u|->inf} y = 0), ensuring the numerical stability and 
-%   applicability of FFT-based inversion methods.
+%   This conditional CF vanishes at infinity (lim_{|u|->inf} y = 0), so it can
+%   be safely FFT-inverted, while the discrete atom is handled separately by the
+%   Bernoulli split in FA_simulation (cf. project hint 3.c.i and [5]).
 %
-%   The function is fully vectorized and supports both scalar and array 
-%   inputs for the frequency variable U.
+%   The function is fully vectorized in the frequency variable U.
 %
 %   Inputs:
-%       u        - Scalar or array of real-valued frequencies (grid points)
-%       pt_plus  - Right-tail decay parameter at terminal time t (pt_plus > 0)
-%       pt_minus - Left-tail decay parameter at terminal time t (pt_minus > 0)
-%       ps_plus  - Right-tail decay parameter at initial time s (ps_plus > 0)
-%       ps_minus - Left-tail decay parameter at initial time s (ps_minus > 0)
+%       u            - real-valued frequencies (scalar or array)
+%       params       - [alpha; beta] MA shape parameters
+%       scale_factor - [scale_s; scale_t] scale factors at s (t1) and t (t2)
 %
 %   Outputs:
 %       y        - Complex characteristic function values evaluated at each U

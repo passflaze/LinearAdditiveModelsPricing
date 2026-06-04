@@ -1,33 +1,18 @@
 function [moneyness_modified, c_mkt_calibration] = moneyness_generator(forward, strikes, calls, puts, sigma_ATM, yf, discount_factor, x_min, x_max)
-% MONEYNESS_GENERATOR Computes modified moneyness and target call surface.
-%
-% Selects the OTM quotes per maturity within a band in *dollar* moneyness
-% x := K - F, as in Baviera & Massaria (2026), paper 3, Sec. 4.1 / Table 3
-% (x in [-30 $, 30 $]). OTM Puts are converted to synthetic Calls via
-% Put-Call Parity. Strikes outside the band or lacking market data remain
-% NaN. The normalized moneyness chi := (K - F)/(sigma_ATM * sqrt(t)) is
-% still returned as the model coordinate (it is what price_AB / price_MA /
-% price_GL consume), but it no longer defines the selection band.
+% MONEYNESS_GENERATOR  OTM quote selection and target call surface ([3] Sec 4.1).
+%   Selects OTM quotes per maturity in the dollar band x = K-F in [x_min, x_max]
+%   ([-30,30]$). OTM puts become synthetic calls via parity C = P + DF*(F-K).
+%   Returns the model coordinate chi = (K-F)/(sigma_ATM*sqrt(t)) ([3] Eq. 17);
+%   strikes outside the band or without data stay NaN.
 %
 % INPUTS:
-%   forward         : (M x 1) forward prices per maturity
-%   strikes         : (1 x N) market strike grid
-%   calls           : (M x N) market call prices (NaNs allowed)
-%   puts            : (M x N) market put prices  (NaNs allowed)
-%   sigma_ATM       : (M x 1) Bachelier ATM implied vols
-%   yf              : (M x 1) year fractions per maturity
-%   discount_factor : (M x 1) discount factors per maturity
-%   x_min           : scalar lower bound on dollar moneyness (e.g. -30), OTM put side
-%   x_max           : scalar upper bound on dollar moneyness (e.g. +30), OTM call side
-%
+%   forward, sigma_ATM, yf, discount_factor : (M x 1) per maturity
+%   strikes         : (1 x N) strike grid
+%   calls, puts     : (M x N) market prices (NaNs allowed)
+%   x_min, x_max    : dollar-moneyness band (OTM put / OTM call side)
 % OUTPUTS:
-%   moneyness_modified : (M x N) chi values where market data is selected
-%   c_mkt_calibration  : (M x N) target call prices (mid for OTM call, parity
-%                        from put for OTM put)
-%
-% Rationale: the dollar band [-30 $, 30 $] reproduces exactly the OTM set
-% used in paper 3 (Table 3) and keeps this routine consistent with
-% run_project2A (xMax = 30 $). chi remains the model coordinate via Eq. (17).
+%   moneyness_modified : (M x N) chi where data is selected
+%   c_mkt_calibration  : (M x N) target call prices
 
     M = length(forward);
     N = length(strikes);

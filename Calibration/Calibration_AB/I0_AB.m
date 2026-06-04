@@ -1,27 +1,16 @@
 function I = I0_AB(x, params)
-% I0_AB  Normalization constant I_0 of the Additive Bachelier (AB) model,
-%        computed via a Lewis/FFT inversion of the (alpha = 0.5) tempered
-%        stable characteristic function.
-%
-%   I_0 ties the market ATM volatility to the internal normalized scale:
-%       sigma_t = sigma_ATM / I_0.
+% I0_AB  Normalization constant I0 = sqrt(2*pi)*E[z^+] of the AB model, via a
+%        Lewis-FFT of the (alpha = 0.5) CF at unit scale. Ties market ATM vol to
+%        the internal scale: sigma_t = sigma_ATM / I0.
 %
 % INPUTS
-%   x      : evaluation point(s) of the recovered I0(.) curve (use 0 for I_0).
-%   params : (2x1) AB parameters in the project-wide convention [k; eta]
-%              params(1) = k   : tempering / mean-reversion parameter (>0)
-%              params(2) = eta : drift parameter
-%
+%   x      : evaluation point(s) of I0(.) (use 0 for I0).
+%   params : [k; eta]  (k > 0 tempering parameter, eta drift)
 % OUTPUT
-%   I      : I0 evaluated at x (scalar for scalar x).
+%   I      : I0 at x (scalar for scalar x).
 %
-% Note: the CF is evaluated with sigma_t = 1, t = 1 (scale_factor = 1), so the
-% f_t-strip coincides with the zeta-strip, p_+- = +-eta + sqrt(eta^2 + 1/k).
-%
-% The ATM evaluation I0(0) is memoized on (k, eta): price_AB and the IV
-% diagnostics call it repeatedly with the SAME parameters (dense smile grids,
-% multiple maturities), and the FFT below is deterministic in (k, eta), so a
-% one-slot cache is exact and removes the redundant 2^14 FFTs.
+% I0(0) is memoized on (k, eta): callers hit it repeatedly with the same
+% parameters and the FFT is deterministic, so a one-slot cache is exact.
 
     persistent cache_keta cache_I0
 

@@ -1,26 +1,29 @@
-function X_samples = simulate_from_cdf(cdf_clean, x_grid_fine, spline,N_sim)
-%SIMULATE_FROM_CDF Generates random samples from the MA process via FFT inversion.
-%   X_SAMPLES = SIMULATE_FROM_CDF(N_SIM, M, DX, SHIFT, PT_PLUS, PT_MINUS, 
-%   PS_PLUS, PS_MINUS) computes the numerical CDF of a Minimal Additive 
-%   increment and generates N_sim independent random samples by numerically 
-%   inverting the CDF using vectorized linear interpolation.
+function X_samples = simulate_from_cdf(cdf_clean, x_grid_fine, spline, N_sim)
+%SIMULATE_FROM_CDF Inverse-CDF sampling from a pre-computed numerical CDF.
+%   X_SAMPLES = SIMULATE_FROM_CDF(CDF_CLEAN, X_GRID_FINE, SPLINE, N_SIM) draws
+%   N_sim independent samples by numerically inverting a CDF that has already
+%   been reconstructed (e.g. via lewis_FFT_digital / tail_adjustment). Two
+%   inversion schemes are available:
+%     * spline = true  : PCHIP inversion. The (CDF, x) pairs are made strictly
+%                         increasing with unique(), then U ~ U(0,1) is mapped
+%                         through interp1(cdf, x, U, 'pchip', 'extrap'). This is
+%                         the path used throughout the project.
+%     * spline = false : piecewise-linear inversion (Glasserman & Liu, 2010):
+%                         bracket each U between adjacent CDF nodes via
+%                         discretize() and invert the local linear segment.
 %
 %   Inputs:
-%       N_sim     - Number of Monte Carlo paths/samples to generate
-%       M         - Controls grid size for FFT, where N = 2^M
-%       dx        - Step size for the spatial grid (x-domain)
-%       shift     - Damping factor (alpha)
-%       pt_plus   - Right-tail decay parameter at terminal time t
-%       pt_minus  - Left-tail decay parameter at terminal time t
-%       ps_plus   - Right-tail decay parameter at initial time s
-%       ps_minus  - Left-tail decay parameter at initial time s
+%       cdf_clean   - CDF values (monotone, 0 -> 1) on x_grid_fine
+%       x_grid_fine - spatial grid corresponding to cdf_clean
+%       spline      - (logical) true for PCHIP inversion, false for linear
+%       N_sim       - number of independent samples to generate
 %
 %   Outputs:
-%       X_samples - A vector of N_sim simulated random increments
+%       X_samples - column vector of N_sim simulated increments
 %
 %   References:
-%       Glasserman and Liu (2010) linear interpolation scheme.
-    
+%       Glasserman and Liu (2010) linear interpolation scheme (spline = false).
+
 
     if spline
 

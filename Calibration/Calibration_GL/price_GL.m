@@ -1,40 +1,18 @@
 function call_GL_final = price_GL(alpha, beta, M, dz, discount_factors, sigma_ATM, yf, modified_moneyness)
-% PRICE_GL European call prices under the Generalized Logistic (GL) model
-% via a Lewis-Bachelier FFT with **double damping**.
-%
-% A single damping shift (e.g. shift = beta/2, lower contour) is appropriate
-% for the OTM call region but produces an exp(-beta*k/2) prefactor that
-% diverges for k << 0 (ITM call / OTM put region). To keep numerical
-% accuracy across the full surface we run two Lewis FFTs:
-%
-%   * Lower contour, shift_call = +beta/2, used for k_tilde >= 0:
-%       C(k_tilde) = -(1/(2*pi)) * exp(-beta*k_tilde/2) *
-%                    integral over Im(w)=-beta/2 of e^{-i w k_tilde} phi(w)/w^2 dw
-%
-%   * Upper contour, shift_put = -alpha/2, used for k_tilde < 0:
-%       P(k_tilde) = -(1/(2*pi)) * exp(+alpha*k_tilde/2) *
-%                    integral over Im(w)=+alpha/2 of e^{-i w k_tilde} phi(w)/w^2 dw
-%
-% The call price for ITM strikes is then recovered via Bachelier put-call
-% parity in zeta-space (martingale, E[zeta]=0):
-%       C_zeta(k_tilde) = -k_tilde + P_zeta(k_tilde),
-% which in market units becomes
-%       C(K) = B * (F - K) + P(K).
+% PRICE_GL  European call surface under the Generalized Logistic model via a
+%   double-damping Lewis-FFT. Two contours keep accuracy across the surface:
+%     k_tilde >= 0 (OTM): lower contour shift +beta/2;
+%     k_tilde <  0 (ITM): upper contour shift -alpha/2, plus parity
+%                         C = B*(F-K) + P.
+%   phi strip is Im(z) in (-beta, alpha), so both shifts lie strictly inside.
 %
 % INPUTS:
-%   alpha, beta        : GL shape parameters (>0). Analyticity strip of phi
-%                        is Im(z) in (-beta, alpha), so the two shifts
-%                        +beta/2 and -alpha/2 both lie strictly inside.
-%   M                  : N_FFT = 2^M
-%   dz                 : output (k_tilde) grid step
-%   discount_factors   : (T x 1) discount factors
-%   sigma_ATM          : (T x 1) Bachelier ATM vols
-%   yf                 : (T x 1) year fractions
-%   modified_moneyness : (T x K) market chi = (K - F)/(sigma_ATM*sqrt(t))
-%
+%   alpha, beta        : GL shape parameters (> 0)
+%   M, dz              : FFT exponent (N = 2^M) and output grid step
+%   discount_factors, sigma_ATM, yf : (T x 1) per maturity
+%   modified_moneyness : (T x K) chi = (K-F)/(sigma_ATM*sqrt(t)), NaN if no quote
 % OUTPUT:
-%   call_GL_final      : (T x K) model call prices on the same grid as the
-%                        input moneyness (NaN where moneyness is NaN).
+%   call_GL_final      : (T x K) call prices (NaN where chi is NaN)
 
     % =========================================================================
     % STEP 0: NORMALIZATION CONSTANT

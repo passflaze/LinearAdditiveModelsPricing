@@ -1,42 +1,32 @@
 function I0 = I0_MA(params)
-% I0_MA Computes the normalization constant (I0) for the MA model.
+% I0_MA Normalization constant I0 of the Minimal Additive (MA) model.
 %
-% This function calculates the analytical structural component I0 used to
-% enforce internal consistency or martingale restrictions within the MA 
-% (Moving Average / Modified Analytical) pricing framework. The calculation
-% switches analytically based on the sign of the threshold parameter gamma_MA.
+% I0 ties the market ATM volatility to the internal normalized scale:
+%       sigma_t = sigma_ATM / I0,
+% with I0 = sqrt(2*pi) * E[z^+] for z the standardized MA marginal. The
+% closed-form expression is piecewise in the sign of the centering drift
+% gamma_MA = 1/alpha - 1/beta (alpha and beta are derived from params).
 %
 % INPUTS:
-%   gamma_MA : Threshold log-moneyness parameter (scalar)
-%   C        : Model scaling/intensity coefficient (must be non-zero)
-%   alpha    : Left tail decay parameter (must be non-zero)
-%   beta     : Right tail decay parameter (must be non-zero)
+%   params : [alpha; beta] MA shape parameters (both strictly non-zero)
 %
 % OUTPUT:
-%   I0       : Analytical normalization factor value (scalar)
+%   I0     : analytical normalization constant (scalar), a pure number
+%            depending only on (alpha, beta)
 
 
     alpha = params(1); beta = params(2);
-    % =========================================================================
-    % STEP 1: INPUT INTEGRITY CHECKS
-    % =========================================================================
     if alpha == 0 || beta == 0
-        error('I0_MA:ZeroParameter', ...
-              'Parameters alpha and beta must be strictly non-zero to prevent division by zero.');
+        error('I0_MA:ZeroParameter', 'alpha and beta must be strictly non-zero.');
     end
 
     gamma_MA = (1/alpha) - (1/beta);
-    C     = 1 / ((1/beta) + (1/alpha)); 
-    % =========================================================================
-    % STEP 2: PIECEWISE ANALYTICAL EVALUATION
-    % =========================================================================
-    % The structural integral changes its convergence form depending on whether
-    % the log-moneyness threshold gamma_MA is positive or negative.
+    C        = 1 / ((1/beta) + (1/alpha));
+
+    % Piecewise on the sign of the centering drift gamma_MA.
     if gamma_MA > 0
-        % Evaluation for positive regime
         I0 = sqrt(2*pi) * (C / (alpha^2)) * exp(-gamma_MA * alpha);
     else
-        % Evaluation for negative/zero regime
         I0 = sqrt(2*pi) * (C / (beta^2)) * exp(gamma_MA * beta);
     end
 end

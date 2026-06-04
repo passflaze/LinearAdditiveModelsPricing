@@ -1,27 +1,17 @@
 function plot_iv_AB(k_AB, eta_AB, discount_factor, yf, sigma_ATM, ...
                     moneyness_modified, c_mkt_calibration, expiries)
-% PLOT_IV_AB  Bachelier implied-volatility diagnostic for the Additive
-% Bachelier (AB) model: calibrated model vs market.
+% PLOT_IV_AB  Bachelier IV diagnostic for the AB model: calibrated vs market.
+%   (a) Normalized smile collapse w(chi)=sigma_imp/sigma_ATM (market points vs
+%       the single, maturity-independent AB curve).
+%   (b) Absolute IV vs dollar moneyness (F-K) at a representative maturity.
+%   IVs from Utilities/bachelier_iv.
 %
-%   Two panels (analogous to check_skew_MA):
-%     (a) Normalized smile collapse: w(chi) = sigma_imp/sigma_ATM for every
-%         maturity's market quotes (points) against the single AB model curve.
-%         By AB separability the normalized model smile is maturity-independent
-%         in chi (same property exploited by price_AB / moneyness_generator),
-%         so all maturities should collapse onto one curve.
-%     (b) Absolute Bachelier IV vs dollar moneyness (F-K) for a representative
-%         (median) maturity: market points vs the AB model line.
-%
-% INPUTS (conventions as in calibrate_surface / check_skew_MA)
-%   k_AB, eta_AB        : calibrated AB parameters (scalars), params = [k; eta]
-%   discount_factor     : (M x 1) discount factors per maturity
-%   yf                  : (M x 1) year fractions per maturity
-%   sigma_ATM           : (M x 1) Bachelier ATM implied vols per maturity
-%   moneyness_modified  : (M x N) normalized moneyness chi (NaN where no data)
+% INPUTS:
+%   k_AB, eta_AB        : calibrated AB parameters (params = [k; eta])
+%   discount_factor, yf, sigma_ATM : (M x 1) per maturity
+%   moneyness_modified  : (M x N) chi (NaN where no data)
 %   c_mkt_calibration   : (M x N) market call prices (NaN where no data)
-%   expiries            : (M x 1) datetime expiry dates (for labels)
-%
-% Implied vols are obtained with the shared Newton inverter Utilities/bachelier_iv.
+%   expiries            : (M x 1) datetime expiry dates (labels)
 
     params = [k_AB; eta_AB];
 

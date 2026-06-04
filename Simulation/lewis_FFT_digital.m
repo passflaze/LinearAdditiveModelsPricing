@@ -1,24 +1,26 @@
 function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors, clean, model, doubleshift, doplot)
-% LEWIS_FFT_ALGORITHM_DIGITAL  Computes digital put prices via FFT inversion
-%                               of the CF using the Lewis (2001) formula.
+% LEWIS_FFT_DIGITAL  Computes the CDF (digital-put price) via FFT inversion of
+%                    the characteristic function using the Lewis (2001) formula.
 %
-%   A sigmoid blend joins the two shifted CDF grids in the transition
-%   region [-1, 1]. An optional tail adjustment enforces monotonicity.
+%   In doubleshift mode two CDF reconstructions are produced (positive shift,
+%   accurate in the left tail; negative shift, accurate in the right tail) and
+%   joined by a tanh blend centred at z = 0. An optional tail adjustment then
+%   refines the grid and enforces a strictly monotone CDF.
 %
 % INPUTS:
-%   cf          - (function handle) CF of the increment: cf(u, params, scale_factor)
-%   M           - (scalar) grid size exponent, N = 2^M (typical: 12-15)
-%   dz          - (scalar) step size in the z-domain (log-strike grid)
-%   params      - (vector) model parameters passed to cf
-%   scale_factor- [scale_t1, scale_t2] scaling factors at t1 and t2
-%   z_grid_std  - (vector) standardised z-grid for spline resampling
-%   clean       - (logical) if true, applies tail_adjustment post-processing
-%   model       - (string) model identifier: 'MA', 'GL', or 'AB'
-%   doubleshift - (logical) if true, uses both shifts and blends the grids
+%   cf            - (function handle) CF of the increment: cf(u, params, scale_factors)
+%   M             - (scalar) grid size exponent, N = 2^M (typical: 12-16)
+%   dz            - (scalar) step size in the z-domain (spatial grid)
+%   params        - (vector) model parameters passed to cf
+%   scale_factors - [scale_t1, scale_t2] scaling factors at t1 and t2
+%   clean         - (logical) if true, applies tail_adjustment post-processing
+%   model         - (string) model identifier: 'MA', 'GL', or 'AB'
+%   doubleshift   - (logical) if true, uses both shifts and blends the grids
+%   doplot        - (optional, default false) plot the raw and cleaned CDF
 %
 % OUTPUTS:
-%   cdf_grid    - (vector) digital put price (CDF) grid, optionally cleaned
-%   z_grid      - (vector) corresponding log-strike spatial grid
+%   cdf_grid    - (vector) CDF grid, optionally cleaned and refined
+%   z_grid      - (vector) corresponding spatial grid
 
 
     if nargin < 9 || isempty(doplot)

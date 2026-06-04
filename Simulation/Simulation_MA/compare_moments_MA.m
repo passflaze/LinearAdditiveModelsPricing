@@ -1,13 +1,18 @@
-function compare_moments_MA(N_sim, M, dz, scale_factor, params, plot)
-% COMPARE_MOMENTS_MA Computes and compares empirical (MC) vs analytical 
+function compare_moments_MA(N_sim, M, dz, scale_factor, params, doPlot)
+% COMPARE_MOMENTS_MA Computes and compares empirical (MC) vs analytical
 % moments for the Minimal Additive (MA) finite activity increment.
 %
 % Inputs:
-%   forward, K, df : Standard pricing parameters (passed for signature consistency)
 %   N_sim          : Number of Monte Carlo paths
 %   M, dz          : Grid parameters for FFT/simulation
 %   scale_factor   : Integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
 %   params         : [alpha_MA, beta_MA]
+%   doPlot         : (optional, default false) plot the simulated distribution
+%                    and the absolute moment errors
+
+    if nargin < 6 || isempty(doPlot)
+        doPlot = false;
+    end
 
     % =========================================================================
     % STEP 1: INTERNAL PARAMETER COMPUTATION
@@ -60,9 +65,10 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params, plot)
     % =========================================================================
     % STEP 4: DIAGNOSTIC PRINTING
     % =========================================================================
-    % Absolute error for mean (since it clusters around 0), Relative for others
+    % Absolute errors |MC - analytical| for every moment (the mean clusters
+    % around 0, so a relative error would be ill-defined there).
     err_M1 = abs(M1_MC - M1_an);
-    err_M2 = abs(M2_MC - M2_an) ;
+    err_M2 = abs(M2_MC - M2_an);
     err_M3 = abs(M3_MC - M3_an);
     err_M4 = abs(M4_MC - M4_an);
 
@@ -83,7 +89,7 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params, plot)
     % =========================================================================
     % STEP 5: PLOTTING
     % =========================================================================
-    if plot
+    if doPlot
         figure('Name', 'MA Increment: Distribution and Moments', 'Position', [100, 100, 1000, 450]);
         
         % Subplot 1: Distribution Histogram
@@ -97,19 +103,19 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params, plot)
         legend('Location', 'best');
         grid on;
         
-        % Subplot 2: Relative Errors
+        % Subplot 2: Absolute Errors
         subplot(1, 2, 2);
-        errors = [err_M2, err_M3, err_M4]; % Excluded mean to avoid scale distortion
+        errors = [err_M2, err_M3, err_M4]; % Mean excluded to avoid scale distortion
         labels = {'Variance', 'Skewness', 'Kurtosis'};
-        b = bar(errors, 'FaceColor', [0.8 0.3 0.3]);
+        bar(errors, 'FaceColor', [0.8 0.3 0.3]);
         set(gca, 'xticklabel', labels);
-        title('Monte Carlo Relative Error (%)');
-        ylabel('Error (%)');
+        title('Monte Carlo Absolute Error |MC - Analytical|');
+        ylabel('Absolute Error');
         ylim([0, max(errors) * 1.2 + 1e-4]); % Add some headroom
-        
+
         % Add error values on top of bars
         for i = 1:length(errors)
-            text(i, errors(i), sprintf('%.2f%%', errors(i)), ...
+            text(i, errors(i), sprintf('%.4f', errors(i)), ...
                 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
         end
         grid on;

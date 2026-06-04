@@ -3,57 +3,24 @@ function skew_report = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
                                      c_mkt_calibration, expiries)
 % CHECK_SKEW_MA  Post-calibration skew diagnostic for the Minimal Additive model.
 %
-%   Verifies a calibrated MA fit using the Bachelier implied-volatility SKEW
-%   as the primary check. This is the natural diagnostic for MA because:
+%   Checks the MA fit via the Bachelier IV skew. The MA driver is an asymmetric
+%   Laplace whose skewness depends only on beta/alpha (the single identifiable
+%   parameter), and by separability the normalized smile w(chi)=sigma_imp/sigma_ATM
+%   is maturity-independent in chi = (K-F)/(sigma_ATM*sqrt(t)). For each maturity
+%   we invert prices to sigma_imp and fit w ~ a0 + a1*chi + a2*chi^2 on
+%   |chi| <= CHI_WIN: ATM skew = a1, level = a0 (~1), curvature = 2*a2. The model
+%   skew is measured identically on a dense chi grid.
 %
-%     1) The MA driver zeta_t is an asymmetric Laplace with rates (alpha,beta)
-%        (cf. price_MA.m: density ~ e^{alpha x} for x<0, ~ e^{-beta x} for x>0).
-%        Its skewness is SCALE-INVARIANT and depends ONLY on the ratio
-%        beta/alpha -- which is exactly the single identifiable parameter of
-%        the model (the (alpha,beta)->(s*alpha,s*beta) gauge invariance
-%        documented in run_exercise_2.m). So checking the skew == checking the
-%        one number you actually calibrated.
-%
-%     2) Under the additive-Bachelier separability of the implied vol
-%        (Baviera & Massaria 2026, the property used in moneyness_generator.m),
-%        the MA implied-vol smile written in normalized moneyness
-%        chi = (K-F)/(sigma_ATM*sqrt(t)) is MATURITY-INDEPENDENT. Hence the
-%        per-maturity market smiles, once normalized, should collapse onto a
-%        single curve whose ATM slope equals the model skew. Strong, falsifiable
-%        prediction: if market skews drift with maturity, a single-beta MA
-%        cannot match them (model limitation, not a calibration bug).
-%
-%   SKEW METRIC. For each maturity we invert market call prices to the
-%   Bachelier implied vol sigma_imp(chi), form the dimensionless normalized
-%   smile w(chi) = sigma_imp(chi)/sigma_ATM, and fit locally (|chi| <= CHI_WIN)
-%       w(chi) ~ a0 + a1*chi + a2*chi^2.
-%   The ATM SKEW is a1 (= dw/dchi at chi=0); a0 is the ATM level (~1, sanity
-%   check on the cascade) and 2*a2 the curvature. The MA model skew is measured
-%   identically on a dense chi grid, so the comparison is apples-to-apples.
-%
-%   INPUTS (conventions as in run_exercise_2.m)
-%     alpha_MA, beta_MA   : calibrated MA rate parameters (scalars)
-%     discount_factor     : (M x 1) discount factors per maturity
-%     yf                  : (M x 1) year fractions per maturity
-%     sigma_ATM           : (M x 1) Bachelier ATM implied vols
-%     moneyness_modified  : (M x N) normalized moneyness chi (NaN where no data)
-%     c_mkt_calibration   : (M x N) target market call prices (NaN where no data)
-%     expiries            : (M x 1) datetime expiry dates (for labels)
-%
+%   INPUTS
+%     alpha_MA, beta_MA   : calibrated MA parameters (scalars)
+%     discount_factor, yf, sigma_ATM : (M x 1) per maturity
+%     moneyness_modified  : (M x N) chi (NaN where no data)
+%     c_mkt_calibration   : (M x N) market call prices (NaN where no data)
+%     expiries            : (M x 1) datetime expiry dates (labels)
 %   OUTPUT
-%     skew_report : struct with fields
-%        .chi_grid        dense chi grid used for the model curve
-%        .w_model         model normalized smile w(chi) on chi_grid
-%        .skew_model      MA model ATM skew (a1)
-%        .level_model     MA model ATM level (a0, should be ~1)
-%        .curv_model      MA model ATM curvature (2*a2)
-%        .skew_mkt        (M x 1) market ATM skew per maturity
-%        .level_mkt       (M x 1) market ATM level per maturity
-%        .curv_mkt        (M x 1) market ATM curvature per maturity
-%        .gamma1_dist     analytic skewness of the asymmetric Laplace (theory)
-%
-%   Reference: Baviera & Massaria (2026), "The additive Bachelier model",
-%   J. Comput. Appl. Math. 487, 117741 (Bachelier IV, Eq. (15); separability).
+%     skew_report : struct (chi_grid, w_model, skew/level/curv model & market,
+%                   gamma1_dist analytic skewness, invariance_dev).
+%   Reference: Baviera & Massaria (2026), Eq. (15) and separability.
 
     % --------------------------- settings --------------------------------
     CHI_WIN = 2.0;     % half-width of the ATM window (in chi) for the local fit
@@ -66,10 +33,7 @@ function skew_report = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
     % ===================================================================== %
     %  1) ANALYTIC ASYMMETRIC-LAPLACE SKEWNESS (theory, distribution-level)  %
     % ===================================================================== %
-    % For density ~ e^{alpha x} (x<0), ~ e^{-beta x} (x>0):
-    %   gamma1 = 2*(1/beta^3 - 1/alpha^3) / (1/alpha^2 + 1/beta^2)^(3/2).
-    % Scale-invariant -> function of beta/alpha only. Sign: beta<alpha => right
-    % tail heavier => positive skew.
+    % gamma1 = 2*(1/b^3 - 1/a^3)/(1/a^2 + 1/b^2)^(3/2); scale-invariant in b/a.
     a = alpha_MA; b = beta_MA;
     gamma1_dist = 2*(1/b^3 - 1/a^3) / (1/a^2 + 1/b^2)^(3/2);
 
@@ -80,9 +44,8 @@ function skew_report = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
     level_mkt = nan(M, 1);
     curv_mkt  = nan(M, 1);
 
-    % Invert the WHOLE surface to Bachelier IV in one vectorized call (the
-    % Newton inversion is elementwise-independent), then normalize per maturity
-    % by sigma_ATM. Dollar moneyness F-K = -chi * sigma_ATM * sqrt(t).
+    % Invert the whole surface to Bachelier IV at once, then normalize per
+    % maturity by sigma_ATM. Dollar moneyness F-K = -chi*sigma_ATM*sqrt(t).
     N           = size(moneyness_modified, 2);
     chi_mkt_all = moneyness_modified;
     sT          = sigma_ATM .* sqrt(yf);                   % (M x 1)
@@ -111,8 +74,7 @@ function skew_report = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
     % ===================================================================== %
     chi_grid = linspace(-CHI_WIN*1.5, CHI_WIN*1.5, NGRID);
 
-    % Use a representative (median) maturity; by separability the normalized
-    % MA smile is the same for any maturity -- we exploit that below as a check.
+    % Representative (median) maturity; smile is maturity-independent by separability.
     iref = max(1, round(M/2));
 
     w_model = ma_normalized_smile(alpha_MA, beta_MA, discount_factor(iref), ...
@@ -123,8 +85,7 @@ function skew_report = check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
     skew_model  = a1m;
     curv_model  = 2*a2m;
 
-    % Maturity-invariance self-check: recompute at the first and last maturity
-    % and report the max deviation of the normalized smile from the reference.
+    % Separability self-check: max smile deviation at first/last vs reference.
     w_first = ma_normalized_smile(alpha_MA, beta_MA, discount_factor(1), ...
                                   yf(1), sigma_ATM(1), chi_grid);
     w_last  = ma_normalized_smile(alpha_MA, beta_MA, discount_factor(M), ...

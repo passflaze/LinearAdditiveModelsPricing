@@ -1,27 +1,29 @@
 function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, dz, sigmat, alpha_MA, beta_MA, fwd_factor, opts)
-% PRICING_FWD_START_MC Computes the Monte Carlo price of a Forward Start Option.
+% PRICING_FWD_START_MA_MC Monte Carlo price of a forward-start option under MA.
 %
-%   This function completely encapsulates the Minimal Additive (MA) structural
-%   parameter generation. It takes the core model parameters and a time vector,
-%   computes all internal variables (drifts, tail decays, shifts), and simulates 
-%   the paths in two steps (Infinite Activity base + Finite Activity increment).
+%   This function encapsulates the Minimal Additive (MA) structural parameter
+%   generation. From the core model parameters and the scale vector it computes
+%   all internal quantities (drifts, tail decays, damping shifts) and simulates
+%   the path in two legs: an Infinite-Activity base over [0, t1] plus a
+%   Finite-Activity increment over [t1, t2] (see FA_simulation).
 %
 %   INPUTS:
-%       forward   : Initial forward/spot price at t=0
-%       K         : Strike multiplier (e.g., 1.0 for ATM forward start)
-%       df        : Discount factor from maturity (t2) to present (0)
-%       N_sim     : Number of Monte Carlo paths
+%       forward   : forward F(0, t2)
+%       K         : strike multiplier(s) (e.g. 1.0 for ATM forward start)
+%       df        : discount factor B(0, t2) (payoff received at t2)
+%       N_sim     : number of Monte Carlo paths
 %       M, dz     : FFT grid parameters for the FA_simulation step
-%       t_vec     : 3-element time vector [0, t1, t2] 
-%       sigma_ATM : At-The-Money implied volatility
-%       alpha_MA  : Alpha parameter of the MA process (governs left tail)
-%       beta_MA   : Beta parameter of the MA process (governs right tail)
+%       sigmat    : 2-element scale vector [sigma_t1*sqrt(t1); sigma_t2*sqrt(t2)]
+%       alpha_MA  : alpha parameter of the MA process (governs left tail)
+%       beta_MA   : beta parameter of the MA process (governs right tail)
 %       fwd_factor: (optional, default 1) Lemma 2 rescaling B(0,t1)/B(0,t2)
 %                   so that F(t1,t2) = forward + fwd_factor*f_{t1,t1}.
+%       opts      : (optional) struct with fields .verbose and .plot
 %
 %   OUTPUTS:
-%       price     : The discounted expected payoff of the option
-%       CI        : 2-element vector containing the [lower, upper] 95% Confidence Interval
+%       price     : discounted expected payoff (1 x numel(K))
+%       CI        : 95% confidence interval for the mean, [lower; upper]
+%       sigma     : sample standard deviation of the discounted payoff
 
     % =========================================================================
     % STEP 0: INPUT VALIDATION & INITIALIZATION

@@ -3,8 +3,8 @@ function plot_mc_check(Z, x_grid, cdf, T1, T2)
 %
 % Inputs:
 %   Z      : Nsim x 1 simulated increments (from simulate_from_cdf)
-%   x_grid : grid passed to ccdf_increment_FFT
-%   cdf    : CDF values on x_grid (from ccdf_increment_FFT)
+%   x_grid : spatial grid of the FFT-reconstructed CDF (from lewis_FFT_digital)
+%   cdf    : CDF values on x_grid (from lewis_FFT_digital)
 %   T1, T2 : reset dates (years)
 
 in_bounds = (cdf > 0) & (cdf < 1);
@@ -28,7 +28,7 @@ histogram(Z, edges, 'Normalization', 'pdf', 'FaceAlpha', 0.5, 'EdgeColor', 'none
 hold on
 plot(x_mid, pdf_approx, 'r-', 'LineWidth', 1.5)
 xlabel('x = X_{T_2} - X_{T_1} [$]'); ylabel('pdf')
-legend('MC', 'teorica (FFT)')
+legend('MC', 'model (FFT)')
 title(sprintf('pdf: T_1=%.2fy \\to T_2=%.2fy', T1, T2))
 xlim([-30 30]); grid on
 
@@ -40,8 +40,8 @@ hold on
 plot(x_mid, pdf_approx, 'r-', 'LineWidth', 1.5)
 set(gca, 'YScale', 'log')
 xlabel('x [$]'); ylabel('pdf (log)')
-legend('MC', 'teorica (FFT)')
-title('pdf: code (log-y)')
+legend('MC', 'model (FFT)')
+title('pdf: tails (log-y)')
 xlim([-30 30]); grid on
 
 % (3) CDF: the binning-free check -- overlap here is the rigorous validation
@@ -50,7 +50,7 @@ subplot(1,3,3)
 plot(x_emp, f_emp, 'b-', 'LineWidth', 1.2); hold on
 plot(x_v, c_v, 'r--', 'LineWidth', 1.5)
 xlabel('x [$]'); ylabel('F(x)')
-legend('MC empirica', 'FFT teorica', 'Location', 'southeast')
+legend('MC empirical', 'FFT model', 'Location', 'southeast')
 xlim([-30 30]); grid on
-title('CDF: MC vs modello')
+title('CDF: MC vs model')
 end

@@ -1,14 +1,11 @@
 function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_GL)
-% COMPARE_DISTRIBUTIONS Analyzes and compares the analytical PDFs of three 
-% quantitative finance distributions (MA, AB, GL) against a Standard Normal.
+% PLOT_DISTRIBUTIONS  Compare the MA, AB (NIG) and GL densities vs a standard
+%   normal, on linear and semi-log scales.
 %
 % INPUTS:
-%   eta_AB   : Drift/skew parameter for the Additive Bachelier (NIG) model
-%   kappa_AB : Kurtosis/variance parameter for the Additive Bachelier (NIG) model
-%   alpha_MA : Left tail shape parameter for the Asymmetric Laplace model
-%   beta_MA  : Right tail shape parameter for the Asymmetric Laplace model
-%   alpha_GL : Left tail shape parameter for the Generalized Logistic model
-%   beta_GL  : Right tail shape parameter for the Generalized Logistic model
+%   eta_AB, kappa_AB   : AB skew and IG parameters
+%   alpha_MA, beta_MA  : MA left/right rates
+%   alpha_GL, beta_GL  : GL left/right shape parameters
     % =========================================================================
     % 1. Global Parameters and Evaluation Grid
     % =========================================================================
@@ -52,7 +49,6 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
     figure('Color', 'w', 'Position', [100, 100, 900, 600]);
     hold on; grid on; box on;
     
-    % Plotting main distributions with professional MATLAB color palette
     plot(x_grid, y_MA, 'LineWidth', 2.5, 'Color', [0 0.4470 0.7410], 'DisplayName', 'Asymmetric Laplace (MA)');
     plot(x_grid, y_AB, 'LineWidth', 2.5, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB Distribution');
     plot(x_grid, y_GL, 'LineWidth', 2.5, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'Generalized Logistic (GL)');

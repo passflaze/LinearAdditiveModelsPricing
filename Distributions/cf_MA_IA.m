@@ -1,17 +1,20 @@
 function cf = cf_MA_IA(u, params, scale_factors)
-%CF_MA_IA Computes the Characteristic Function of the MA base process.
+%CF_MA_IA Characteristic function of the MA marginal (base process at time t).
 %
-%   CF = CF_MA_IA(U, PT_PLUS, PT_MINUS) evaluates the exact 
-%   characteristic function in the complex domain using only the tail 
-%   decay parameters, dynamically computing the drift gamma_t.
+%   CF = CF_MA_IA(U, PARAMS, SCALE_FACTORS) evaluates the exact marginal CF of
+%   the Minimal Additive process. The tail decays are derived from the model
+%   parameters and the (largest) scale factor, pt_plus = beta/scale,
+%   pt_minus = alpha/scale, and the centering drift gamma_t is computed so that
+%   the marginal has zero mean (martingale).
 %
 %   Inputs:
-%       u        - Frequency domain grid (vector or scalar)
-%       pt_plus  - Right-tail decay parameter at time t
-%       pt_minus - Left-tail decay parameter at time t
+%       u             - Fourier argument (vector or scalar)
+%       params        - [alpha; beta] MA shape parameters
+%       scale_factors - scale factor(s); the largest entry is used,
+%                       scale = max(scale_factors) = sigma_t*sqrt(t)
 %
 %   Outputs:
-%       cf       - The evaluated Characteristic Function (complex array)
+%       cf       - The evaluated characteristic function (complex array)
 
     scale_factor = max(scale_factors);
     pt_plus = params(2)/scale_factor; pt_minus = params(1)/scale_factor;

@@ -1,55 +1,37 @@
-% =========================================================================
-% GRAPHICS SETTINGS (Light background for plots)
-% =========================================================================
+% CHECK_MA_SCALED  Standalone demo: MA density at calibrated (alpha,beta) vs the
+%   same rescaled by 1/10, confirming the gauge invariance of the scaled density.
+
 set(groot, 'defaultFigureColor', 'w');
 set(groot, 'defaultAxesColor', 'w');
 set(groot, 'defaultAxesXColor', 'k');
 set(groot, 'defaultAxesYColor', 'k');
 set(groot, 'defaultTextColor', 'k');
 
-% =========================================================================
-% 1. PARAMETERS AND GRID SETUP
-% =========================================================================
-% Wider spatial grid to accommodate high volatility
-x_grid = linspace(-100, 100, 1000); 
+x_grid = linspace(-100, 100, 1000);
 
-% Market data and base parameters (MA Model)
+% Calibrated MA parameters and ATM vol (hardcoded for the demo).
 alphaMA1 = 1.000000000000000;
 betaMA1  = 0.982156170515665;
 sigmaATM = 14.740269016504566;
 
-% =========================================================================
-% 2. SCALED DISTRIBUTIONS COMPUTATION
-% =========================================================================
-% --- Distribution 1 (Original parameters) ---
-% Compute scale factor
+% Distribution 1: scaled density f(sigma*x) = (1/sigma) f(x/sigma).
 sigmaMA1 = sigmaATM / I0_MA([alphaMA1; betaMA1]);
-% Compute scaled PDF: f(sigma*x) = 1/sigma * f(x/sigma)
 y_MA1 = (1 / sigmaMA1) * pdf_MA([alphaMA1; betaMA1], 1, x_grid / sigmaMA1);
 
-% --- Distribution 2 (Parameters scaled down by a factor of 10) ---
+% Distribution 2: parameters scaled down by 10.
 alphaMA2 = alphaMA1 / 10;
 betaMA2  = betaMA1 / 10;
-% Compute scale factor with new parameters
 sigmaMA2 = sigmaATM / I0_MA([alphaMA2; betaMA2]);
-% Compute scaled PDF
 y_MA2 = (1 / sigmaMA2) * pdf_MA([alphaMA2; betaMA2], 1, x_grid / sigmaMA2);
 
-% =========================================================================
-% 3. COMPARISON PLOT
-% =========================================================================
 figure('Name', 'MA Distributions Scale Comparison', 'Position', [150, 150, 900, 500]);
 hold on; grid on; box on;
 
-% Plot Distribution 1 (Solid line, Blue)
 plot(x_grid, y_MA1, '-', 'LineWidth', 2.5, 'Color', [0 0.4470 0.7410], ...
     'DisplayName', sprintf('MA (\\alpha=%.1f, \\beta\\approx%.2f)', alphaMA1, betaMA1));
-
-% Plot Distribution 2 (Dashed line, Orange, slightly thicker)
 plot(x_grid, y_MA2, '--', 'LineWidth', 3, 'Color', [0.8500 0.3250 0.0980], ...
     'DisplayName', sprintf('MA (\\alpha/10, \\beta/10)'));
 
-% Aesthetics and Titles
 title('Comparison of Scaled Asymmetric Laplace (MA) Distributions', 'FontSize', 15, 'FontWeight', 'bold');
 xlabel('Modified Moneyness ($\zeta$)', 'Interpreter', 'latex', 'FontSize', 13);
 ylabel('Scaled Density', 'FontSize', 13);

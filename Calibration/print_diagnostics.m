@@ -1,16 +1,14 @@
 function print_diagnostics(k_AB, eta_AB, fval_AB, alpha_MA, beta_MA, fval_MA, ...
         alpha_GL, beta_GL, fval_GL, M, dz, discount_factor, yf, sigma_ATM, ...
         moneyness_modified, c_mkt_calibration, expiries, nT, plot_flag)
-% Post-calibration diagnostics and reporting (verbose path).
-%
-% Added plot_flag (optional, default false): if true, plots a comparison 
-% of model vs market prices and errors in bps for the sampled options.
+% PRINT_DIAGNOSTICS  Post-calibration report: parameters, per-maturity RMSE and
+%   a sample pricing comparison. plot_flag (optional) adds price/error plots.
 
 if nargin < 19
     plot_flag = false;
 end
 
-fprintf('STEP 5: Post-Calibration Diagnostics and Reporting...\n');
+fprintf('Post-Calibration Diagnostics and Reporting...\n');
 % Compute model prices using calibrated parameters
 c_mod_AB = price_AB([k_AB, eta_AB], discount_factor, yf, sigma_ATM, moneyness_modified);
 c_mod_MA = price_MA([alpha_MA, beta_MA], discount_factor, yf, sigma_ATM, moneyness_modified);

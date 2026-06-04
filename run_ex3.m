@@ -169,7 +169,7 @@ function LA_results = run_ex3(params, market, opts)
         fprintf('  > Verifying ATM Analytical Price via Numerical Integration...\n');
         sigmat_s = fwd_factor * sc_T1_MA;
         drift_t1_t2 = gamma_MA * (sc_T2_MA - sigmat_s);
-        [cdf_exact, x_grid] = exact_ma_increment_cdf(beta_MA/sc_T2_MA, alpha_MA/sc_T2_MA, beta_MA/sigmat_s, alpha_MA/sigmat_s, drift_t1_t2);
+        [cdf_exact, x_grid] = exact_ma_increment_cdf(beta_MA/sc_T2_MA, alpha_MA/sc_T2_MA, beta_MA/sigmat_s, alpha_MA/sigmat_s, drift_t1_t2, opts.plot);
         cdf_fun = @(x) interp1(x_grid, cdf_exact, x, 'pchip', 'extrap');
         price_integrated_MA = discount_factor(iT2) * integral(@(x) 1 - cdf_fun(x), 0, x_grid(end));
         
