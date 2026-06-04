@@ -1,20 +1,33 @@
-function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_euro, PoP_euro, Ch_euro, products, greeks, tuesdays, dynamic)
+function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sigma, CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic)
 % RUN_EX6_HEDGING  Dynamic wrapper for Risk Management Delta-Gamma-Vega hedge.
 %
+%   The hedging basket is driven ENTIRELY by the caller: one instrument per
+%   entry of 'products'. Examples:
+%       {'Call','Put'}           -> 1 call + 1 put
+%       {'Call','Call','Put'}    -> 2 calls (same/different K) + 1 put
+%       {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+%   Strikes and maturities for each leg are also chosen by the caller via
+%   hedge_moneyness and hedge_mat (see below). For an EXACT hedge use as many
+%   independent instruments as targeted Greeks (e.g. 3 for Delta-Gamma-Vega);
+%   same-strike call & put are gamma/vega-redundant (build_hedge warns).
+%
 % INPUTS:
-%   maturity_index - (struct) Maturities for call, put, future
-%   Kcall / Kput   - (scalar or 'ATM') Strikes for the options
-%   bump_sigma     - (array) Bumps for finite differences
-%   CoC_euro       - (scalar) Budget for Cash-or-Nothing (>0 long, <0 short, 0 exclude)
-%   PoP_euro       - (scalar) Budget for Pay-Later     (>0 long, <0 short, 0 exclude)
-%   Ch_euro        - (scalar) Budget for Chooser       (>0 long, <0 short, 0 exclude)
-%   products       - (cell) Instruments to use (e.g. {'Call', 'Future'})
-%   greeks         - (cell) Greeks to hedge (e.g. {'Delta', 'Vega'})
-%   tuesdays       - (datetime array) Forward dates for the backtest
-%   dynamic        - (logical) True to enable dynamic rebalancing
+%   products        - (cell) one kind per instrument: 'Call' | 'Put' | 'Future'
+%   hedge_moneyness - (vector) per-leg strike as a $-offset from the ATM forward
+%                     at that leg (0 = ATM). Ignored for 'Future'. Same length
+%                     as products.
+%   hedge_mat       - (vector) per-leg maturity index (e.g. 4 = T2). Same length
+%                     as products.
+%   bump_sigma      - (array) Bumps for finite differences (vol)
+%   CoC_euro        - (scalar) Budget for Cash-or-Nothing (>0 long, <0 short, 0 exclude)
+%   PoP_euro        - (scalar) Budget for Pay-Later     (>0 long, <0 short, 0 exclude)
+%   Ch_euro         - (scalar) Budget for Chooser       (>0 long, <0 short, 0 exclude)
+%   greeks          - (cell) Greeks to hedge (e.g. {'Delta','Gamma','Vega'})
+%   tuesdays        - (datetime array) Forward dates for the backtest
+%   dynamic         - (logical) True to enable dynamic rebalancing
 %
 % OUTPUT:
-%   LA_results_es6 - (struct) .Greeks .Positions .Cost .Backtest tables
+%   LA_results_es6 - (struct) .Greeks .Basket .Weights .Residuals .Cost .Backtest
 
     %% ========================================================================
     %  0. ENVIRONMENT SETUP
@@ -31,6 +44,25 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     fprintf('=========================================================================\n');
     fprintf('        EX.6 - RISK MANAGEMENT: AB EXOTICS DELTA-GAMMA-VEGA HEDGE        \n');
     fprintf('=========================================================================\n\n');
+
+    %% ========================================================================
+    %  0b. HEDGE FEASIBILITY CHECK (fail fast, before any pricing)
+    %  ========================================================================
+    % An exact hedge of M Greeks needs at least M independent instruments.
+    % With fewer instruments the system is under-determined: build_hedge would
+    % silently return a least-squares fit that does NOT zero all the targeted
+    % Greeks. Block here with a clear message instead.
+    nInstr  = numel(products);
+    nGreeks = numel(greeks);
+    if nInstr < nGreeks
+        warning('run_ex6:UnderHedged', ...
+            'Under-determined hedge: %d instruments for %d Greeks.', nInstr, nGreeks);
+        error('run_ex6:UnderHedged', ...
+            ['Cannot hedge {%s} (%d Greeks) with only %d instrument(s) {%s}. ', ...
+             'Add instruments so numel(products) >= numel(greeks) (with DISTINCT ', ...
+             'strikes/maturities to keep them independent).'], ...
+            strjoin(greeks, ','), nGreeks, nInstr, strjoin(products, ','));
+    end
 
     %% ========================================================================
     %  1. MARKET CALIBRATION & STATE UNPACKING (t0)
@@ -59,18 +91,13 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     F_t0_t2 = market.forward(iT2);
 
     %% ========================================================================
-    %  2. DYNAMIC INPUT RESOLUTION
+    %  2. PRICING PARAMETERS
     %  ========================================================================
-    % Parse 'ATM' or empty strikes dynamically
-    if isempty(Kcall) || (ischar(Kcall) && strcmpi(Kcall, 'ATM')), Kcall = F_t0_t2; end
-    if isempty(Kput)  || (ischar(Kput)  && strcmpi(Kput, 'ATM')),  Kput = F_t0_t2;  end
-
     params_hedge = struct();
     params_hedge.forward = F_t0_t2;
-    params_hedge.K1      = 1;         
-    params_hedge.K2      = F_t0_t2;   
-    params_hedge.Kc      = Kcall;   
-    params_hedge.Kp      = Kput;   
+    params_hedge.K1      = 1;
+    params_hedge.K2      = F_t0_t2;
+    params_hedge.Kc      = F_t0_t2;   % ATM default (only used by the exotic vega path)
 
     % Numerical & Simulation Settings
     mc = struct('N_sim', 1e6, 'M', 16, 'dz', 5e-3, 'N_grid', 300, 'seed', 1234);
@@ -82,30 +109,35 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     costRule   = struct('fut_bp', 1, 'opt_bp', 4);
 
     %% ========================================================================
-    %  3. HEDGING BASKET DEFINITION & INITIAL GREEKS (t0)
+    %  3. HEDGING BASKET (driven by the caller's 'products' spec) & GREEKS (t0)
     %  ========================================================================
-    % A single ATM call+put shares gamma AND vega (put-call parity) and cannot
-    % span Delta-Gamma-Vega. We therefore hedge with 3 DISTINCT vanilla strikes
-    % on the exotic's terminal leg T2 (ATM + OTM wings) so the 3x3 Greek matrix
-    % is full rank. Wing offset = wing_mult * (1 stdev in $).
-    %
-    % Keep wing_mult MODERATE (~0.5): wings too deep OTM have tiny gamma/vega,
-    % which makes the Greek matrix ill-conditioned and blows up the hedge
-    % notionals (and the rebalancing cash flows). build_hedge reports cond(A).
-    % NB: 'products'/Kput are superseded by this basket (vanillas-only hedge).
-    fprintf('Building vanilla hedging basket (3 strikes @ T2)...\n');
+    % One instrument per entry of 'products'. Strike of each leg is the ATM
+    % forward at its maturity plus the caller's $-offset (hedge_moneyness);
+    % 'Future' legs ignore the offset. For an exact Delta-Gamma-Vega hedge use
+    % >= 3 independent instruments (distinct strikes); a same-strike call+put
+    % share gamma & vega (build_hedge warns via rank / cond(A)).
+    fprintf('Building hedging basket from products spec...\n');
 
     empty_greek = struct('price', 0, 'delta', 0, 'gamma', 0, 'vega', 0);
 
-    vanilla_mat = iT2;
-    wing_mult   = 0.5;   % wing distance in stdev units (tune for conditioning)
-    dK          = wing_mult * scale_factor_vanilla(vanilla_mat);
-    Kc_center   = Kcall;   % resolved ATM anchor (= F if 'ATM' was passed)
+    nP = numel(products);
+    if numel(hedge_moneyness) ~= nP || numel(hedge_mat) ~= nP
+        error('run_ex6:basketSpec', ...
+              ['products (%d), hedge_moneyness (%d) and hedge_mat (%d) must ', ...
+               'have the same length.'], nP, numel(hedge_moneyness), numel(hedge_mat));
+    end
 
-    basket = struct( ...
-        'kind', {'call',      'call',           'put'}, ...
-        'K',    {Kc_center,   Kc_center + dK,   Kc_center - dK}, ...
-        'mat',  {vanilla_mat, vanilla_mat,      vanilla_mat});
+    basket = repmat(struct('kind', '', 'K', NaN, 'mat', NaN), nP, 1);
+    for j = 1:nP
+        kind = lower(products{j});
+        matj = hedge_mat(j);
+        if strcmpi(kind, 'future')
+            Kj = NaN;                                   % strike irrelevant
+        else
+            Kj = market.forward(matj) + hedge_moneyness(j);   % ATM(leg) + $ offset
+        end
+        basket(j) = struct('kind', kind, 'K', Kj, 'mat', matj);
+    end
 
     fprintf('Computing initial Greeks for the hedging basket...\n');
     instr = price_hedge_basket(basket, params.AB, scale_factor_vanilla, market, params_hedge, mc, bumps);

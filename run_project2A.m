@@ -92,14 +92,6 @@ LA_results_es4 = run_ex4(params, market, opts_ex4);
 %  EX 6 - HEDGIING 
 %  =========================================================================
 
-maturity_index = struct();
-maturity_index.call = 4;
-maturity_index.put = 4;
-maturity_index.future = 4;
-
-Kcall = 'ATM';
-Kput = 'ATM'; % check if ATM is dynamic
-
 % Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
 % convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
 % point gives a clean central-difference signal.
@@ -109,14 +101,25 @@ CoC_euro = -1e6;
 PoP_euro = 1e4; 
 Ch_euro  = -1e6;
 
-% The hedge basket is now 3 distinct vanilla strikes @ T2 (built inside
-% run_ex6), which spans Delta-Gamma-Vega. 'products' is kept for signature
-% compatibility but superseded by the vanilla basket.
-products = {'Call', 'Put'};
-greeks   = {'Delta', 'Gamma'};
+% --- HEDGING BASKET (fully defined here) ---------------------------------
+% One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
+%   {'Call','Put'}           -> 1 call + 1 put
+%   {'Call','Call','Put'}    -> 2 calls + 1 put
+%   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+% hedge_moneyness : per-leg strike as a $-offset from the ATM forward (0=ATM);
+%                   distinct values give independent gamma/vega (needed to span
+%                   Delta-Gamma-Vega). Ignored for 'Future'.
+% hedge_mat       : per-leg maturity index (4 = T2, the exotic's terminal leg).
+% Use as many independent instruments as targeted Greeks for an exact hedge.
+products        = {'Call', 'Call', 'Put'};
+hedge_moneyness = [   0,     +8,    -8 ];
+hedge_mat       = [   4,      4,     4 ];
+greeks          = {'Delta', 'Gamma', 'Vega'};
+
 tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
-dynamic = true;
-LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_euro, PoP_euro, Ch_euro, products, greeks, tuesdays, dynamic);
+dynamic  = true;
+LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sigma, ...
+                         CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
 
 %% =========================================================================
 %  DONE
