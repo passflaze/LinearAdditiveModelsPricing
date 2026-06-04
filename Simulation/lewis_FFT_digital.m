@@ -21,9 +21,6 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
 %   z_grid      - (vector) corresponding log-strike spatial grid
 
 
-    % Plotting + verbose boundary report are OFF by default: this routine is
-    % called repeatedly (MC, every model/maturity), so unconditional figures
-    % and prints would spam. Pass doplot = true for the diagnostic figures.
     if nargin < 9 || isempty(doplot)
         doplot = false;
     end
@@ -75,8 +72,6 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
     input_fft_pos        = fourier_function_pos .* exp(-1i * z1 * dx * j_minus_1);
 
     fft_cdf_pos   = real(prefactor .* fft(input_fft_pos));
-    % fft_cdf_pos   = interp1(z_grid, fft_cdf_pos, z_grid_std, 'spline');
-    % preprefactor_pos = interp1(z_grid, preprefactor_pos, z_grid_std, 'spline');
     cdf_clean_pos = preprefactor_pos .* fft_cdf_pos;
 
     % --- Negative shift + blending (doubleshift mode) ---
@@ -89,18 +84,11 @@ function [cdf_grid, z_grid] = lewis_FFT_digital(cf, M, dz, params, scale_factors
         input_fft_neg        = fourier_function_neg .* exp(-1i * z1 * dx * j_minus_1);
 
         fft_cdf_neg      = real(prefactor .* fft(input_fft_neg));
-        % fft_cdf_neg      = interp1(z_grid, fft_cdf_neg,      z_grid_std, 'spline');
-        % preprefactor_neg = interp1(z_grid, preprefactor_neg, z_grid_std, 'spline');
         cdf_clean_neg    = 1 + preprefactor_neg .* fft_cdf_neg;
         z_grid_std = z_grid;
 
         % Each one-shift reconstruction is a CDF (digital-put price) and must
-        % lie in [0,1]. At the extreme grid edges (|z| ~ N*dz/2) the damping
-        % prefactor exp(shift*z) of the OPPOSITE side overflows, so the raw
-        % grid blows up there (e.g. ~1e23 for the gamma-based GL CF). Clamp
-        % BEFORE the blend: this is a no-op in the valid central region but
-        % removes the overflow, so the tanh blend (and the boundary-convergence
-        % diagnostic below) stay finite. tail_adjustment then splices the tails.
+        % lie in [0,1]. 
         cdf_clean_pos = min(max(cdf_clean_pos, 0), 1);
         cdf_clean_neg = min(max(cdf_clean_neg, 0), 1);
 

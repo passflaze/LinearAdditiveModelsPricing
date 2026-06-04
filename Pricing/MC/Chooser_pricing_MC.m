@@ -1,4 +1,4 @@
-function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, scale_factor, N_sim, M, dz, N_grid, forward, K2, discount_factors, model, diagnostics)
+function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, scale_factor, N_sim, M, dz, N_grid, forward, K2, discount_factors, model, opts)
 % CHOOSER_PRICING_MC  Computes the Chooser-option price via semi-analytic
 %                     Monte Carlo under the MA, GL, or AB model.
 %
@@ -20,7 +20,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
 %   K2              - (scalar) strike of the inner options (paid at t2)
 %   discount_factors- [B(t0,t1), B(t0,t2)] discount factors
 %   model           - (string) model identifier: 'MA', 'GL', or 'AB'
-%   diagnostics     - (optional, default true) print the per-model diagnostics.
+%   opts.verbose     - (optional, default true) print the per-model opts.verbose.
 %
 % OUTPUTS:
 %   price           - (scalar) estimated fair value of the Chooser at t0
@@ -28,7 +28,19 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
 %   ft1             - (vector) simulated increments at t1
 %   call_price_t1   - (vector) inner call prices at t1 for each path
 
-    if nargin < 11 || isempty(diagnostics), diagnostics = false; end
+    % --- Options Initialization ---
+    if nargin < 12 || isempty(opts)
+        opts = struct();
+    end
+    if ~isfield(opts, 'verbose')
+        opts.verbose = false;
+    end
+    if ~isfield(opts, 'plot')
+        opts.plot = false;
+    end
+    % ------------------------------
+
+    
     if N_sim == 0
         % Accuracy sizing decoupled into size_Nsim_MC and cached on disk: the
         % pilot (which also rebuilds the FFT CDF) runs ONCE per (option, model,
@@ -45,7 +57,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
     % Lemma 2 (Forward.pdf): F(T1,T2) = forward + fwd_factor * f_{T1,T1}.
     fwd_factor = discount_factors(1) / discount_factors(2);
 
-    if diagnostics
+    if opts.verbose
         fprintf('\n=================================================================\n');
         fprintf('  CHOOSER PRICING MC — Model: %s\n', model);
         fprintf('=================================================================\n');
@@ -66,24 +78,22 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
             % params(1) = alpha, params(2) = beta
             ps_plus = params(2)/scale_factor(1); 
             ps_minus = params(1)/scale_factor(1);
-            std_T1     = (1/params(1)^2) + (1/params(2)^2);
-            z_grid_std = linspace(-100 * std_T1, 100 * std_T1, N_grid)';
             gamma_MA = (1 / params(1)) - (1 /params(2));
             drift_0_t1 = gamma_MA * scale_factor(1);
             
-            if diagnostics
+            if opts.verbose
                 fprintf('        drift_0_t1 = %.6f  |  std_T1 = %.6f\n', drift_0_t1, std_T1);
                 fprintf('        z_grid_std: [%.4f, %.4f]  (%d points)\n', z_grid_std(1), z_grid_std(end), N_grid);
             end
             
             ft1 = FA_simulation(N_sim, M, dz, drift_0_t1, ...
-                             ps_plus, ps_minus, 0, 0, 1, 'infinite', 1, params, scale_factor(1), z_grid_std);
+                             ps_plus, ps_minus, 0, 0, 1, 'infinite', 1, params, scale_factor(1), opts.plot);
         case 'GL'
             % params(1) = alpha, params(2) = beta
             [cdf_fT1, z_grid]    = lewis_FFT_digital(@cf_GL, M, dz, params, ...
-                             scale_factor(1), 1, 'GL', 1);
+                             scale_factor(1), 1, 'GL', 1, opts.plot);
                              
-            if diagnostics
+            if opts.verbose
                 fprintf('        z_grid: [%.4f, %.4f]  (%d points)\n', z_grid(1), z_grid(end), numel(z_grid));
             end
             
@@ -91,16 +101,16 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
         case 'AB'
             % params(1) = k (kappa), params(2) = eta
             [cdf_fT1, z_grid]    = lewis_FFT_digital(@cf_AB, M, dz, params, ...
-                             scale_factor(1), 1, 'AB', 1);
+                             scale_factor(1), 1, 'AB', 1, opts.plot);
                              
-            if diagnostics
+            if opts.verbose
                 fprintf('        z_grid: [%.4f, %.4f]  (%d points)\n', z_grid(1), z_grid(end), numel(z_grid));
             end
             
             ft1        = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);
     end
     
-    if diagnostics
+    if opts.verbose
         fprintf('        ft1 — mean: %.6f  |  std: %.6f  |  min: %.4f  |  max: %.4f\n', ...
             mean(ft1), std(ft1), min(ft1), max(ft1));
     end
@@ -109,7 +119,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
     F_t1_T2 = forward + fwd_factor * ft1;
     
     % --- Analytically price the inner options at t1 for each path ---
-    if diagnostics
+    if opts.verbose
         fprintf('-----------------------------------------------------------------\n');
         fprintf('  [2/3] Pricing inner options at t1...\n');
     end
@@ -118,7 +128,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
     strikes      = K2 - F_t1_T2;
     df_t1_t2     = discount_factors(2) / discount_factors(1);
     
-    if diagnostics
+    if opts.verbose
         fprintf('        df(t1,t2) = %.6f\n', df_t1_t2);
         fprintf('        strikes — mean: %.6f  |  std: %.6f\n', mean(strikes), std(strikes));
     end
@@ -138,7 +148,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
     % Inner put value at t1 via put-call parity: P = C + B(t1,t2)*(K2 - F)
     put_price_t1   = call_price_t1 + df_t1_t2 * strikes;
     
-    if diagnostics
+    if opts.verbose
         fprintf('        call_t1 — mean: %.6f  |  std: %.6f\n', mean(call_price_t1), std(call_price_t1));
         fprintf('        put_t1  — mean: %.6f  |  std: %.6f\n', mean(put_price_t1), std(put_price_t1));
         fprintf('-----------------------------------------------------------------\n');
@@ -151,7 +161,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
   
     [price, sigma, CI, ~] = normfit(discounted_payoffs);
     
-    if diagnostics
+    if opts.verbose
         fprintf('=================================================================\n');
         fprintf('  RESULTS — Model: %s\n', model);
         fprintf('  Price:  %.6f\n', price);

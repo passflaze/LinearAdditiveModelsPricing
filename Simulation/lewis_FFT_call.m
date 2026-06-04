@@ -24,12 +24,6 @@ function price = lewis_FFT_call(cf, M, dz, params, scalefactor, strikes, doubles
         fwd_factor = 1;
     end
 
-
-
-    % Only the Lemma-2-aware increment CFs (cf_MA_FA, cf_increment_GL/AB)
-    % accept the 4th fwd_factor argument. Plain marginal CFs (cf_MA_IA) and
-    % pre-bound wrappers declare 3 inputs: call them without fwd_factor so this
-    % routine stays backward compatible with every existing caller.
     if nargin(cf) >= 4
         cf_eval = @(u) cf(u, params, scalefactor, fwd_factor);
     else
@@ -93,12 +87,6 @@ function price = lewis_FFT_call(cf, M, dz, params, scalefactor, strikes, doubles
         price_clean_pos = -z_grid + preprefactor_pos .* real(prefactor .* fft(input_fft_pos));
 
         % Sigmoid blend in the transition region [-1, 1].
-        % The positive shift (a>0, Ra=-z) is accurate on the LEFT (z<0, ITM
-        % call); the negative shift (a<0, Ra=0) is accurate on the RIGHT (z>0,
-        % OTM call). The blend weight w = sigmoid(5z) goes 0 -> 1 with z, so the
-        % POS branch must carry weight (1-w) and the NEG branch weight w (same
-        % convention as lewis_FFT_digital / ccdf_increment_FFT). Carrying w on
-        % the pos branch (as before) inverted the blend and left kinks at z=+-1.
         price_grid              = zeros(size(z_grid));
         price_grid(z_grid < -1) = price_clean_pos(z_grid < -1);
         price_grid(z_grid >  1) = price_clean_neg(z_grid >  1);

@@ -40,9 +40,7 @@ function price = fwd_start_LA_analytic(cf_inc, model, params, sc_T1, sc_T2, ...
     K2    = K2(:).';
     price = zeros(1, numel(K2));
 
-    % Reset-forward marginal (scale_factor(1) = 0 collapses cf_inc to phi_T1).
-    % Only needed for non-ATM strikes; a coarse node set is plenty for the
-    % smooth 1-D outer integral.
+    
     if any(K2 ~= 1)
         [cdf_z1, x_z1] = lewis_FFT_digital(cf_h, M, dz, params, [0; sc_T1], ...
                                            true, model, true, false);

@@ -1,4 +1,4 @@
-function price = pricing_fwd_start_analytic(alpha_MA, beta_MA, sigmat, df, K2, F_t0_t2, fwd_factor)
+function price = pricing_fwd_start_MA_analytic(alpha_MA, beta_MA, sigmat, df, K2, F_t0_t2, fwd_factor)
 % PRICING_FWD_START_ANALYTIC Computes the analytical price of a forward start
 % option under the Minimal Additive model. Supports vectorized strikes (K2).
 %

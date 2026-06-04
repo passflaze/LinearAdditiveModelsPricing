@@ -1,5 +1,5 @@
 function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1, sigma_T2, ...
-        N_sim, M, dz, forward, B_0_t1, B_0_t2, strike)
+        N_sim, M, dz, forward, B_0_t1, B_0_t2, strike, opts)
 % PRICING_FWD_START_MC  Monte Carlo price of the forward-start option
 %   payoff = [ S(T2) - K2 * F(T1,T2) ]_+
 % under a Linear Additive model. UNIFIED entry point for the three models
@@ -44,7 +44,20 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
 %   diag  : struct with the cleaned conditional CDF (x_cond, cdf_cond) and the
 %           simulated increment W (for plotting / FFT cross-checks). Empty for
 %           the MA branch.
-    
+
+    % --- Options Initialization ---
+    if nargin < 12 || isempty(opts)
+        opts = struct();
+    end
+    if ~isfield(opts, 'verbose')
+        opts.verbose = false;
+    end
+    if ~isfield(opts, 'plot')
+        opts.plot = false;
+    end
+    % ------------------------------
+
+
     if N_sim == 0
         % Accuracy sizing decoupled into size_Nsim_MC and cached on disk
         sig_inputs = [params(:); sigma_T1; sigma_T2; forward; B_0_t1; B_0_t2; ...
@@ -55,18 +68,16 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
             sprintf('fwdstart_%s', upper(model)), sig_inputs, struct('ref', forward));
     end
 
-    % Lemma 2 (Forward.pdf): F(T1,T2) = forward + fwd_factor * f_{T1,T1}.
+    % Lemma 2
     fwd_factor = B_0_t1 / B_0_t2;
 
     switch upper(model)
         % -----------------------------------------------------------------
         case 'MA'   % Minimal Additive: dedicated FA_simulation engine
         % -----------------------------------------------------------------
-            % sigma_T1/sigma_T2 already carry sqrt(T), so they ARE the sigmat
-            % vector expected by pricing_fwd_start_MA_MC.
             [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, strike, B_0_t2, ...
                               N_sim, M, dz, [sigma_T1; sigma_T2], ...
-                              params(1), params(2), fwd_factor);
+                              params(1), params(2), fwd_factor, opts);
             diag = struct([]);
 
         % -----------------------------------------------------------------
@@ -84,12 +95,12 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
 
             % --- marginal CDF (0 -> T1): scale(1)=0 collapses to phi_T1 -----
             [cdf_1, x_1] = lewis_FFT_digital(cf_h, M, dz, params, ...
-                               [0; sigma_T1], true, upper(model), true, false);
+                               [0; sigma_T1], true, upper(model), true, opts.plot);
             Z1 = simulate_from_cdf(cdf_1, x_1, true, N_sim);
 
             % --- conditional CDF (T1 -> T2) under Lemma 2 -------------------
             [cdf_2, x_2] = lewis_FFT_digital(cf_h, M, dz, params, ...
-                               [sigma_T1; sigma_T2], true, upper(model), true, false);
+                               [sigma_T1; sigma_T2], true, upper(model), true, opts.plot);
             W = simulate_from_cdf(cdf_2, x_2, true, N_sim);
 
             % --- Lemma 2 reconstruction of forward / spot ------------------

@@ -44,7 +44,8 @@ addpath("Hedging/");
 %  =========================================================================
 %  ex0 e uno script di analisi delle distribuzioni: confronta le PDF dei tre
 %  modelli additivi e valida la AB via simulazione Monte Carlo.
-run_ex0(true);
+plot_ex0 = true;
+run_ex0(plot_ex0);
 
 %% =========================================================================
 %  EX 1 + EX 2 - CURVE BOOTSTRAP & VOLATILITY SURFACE CALIBRATION
@@ -61,20 +62,29 @@ opts.callpath   = "Data/datacalls";
 opts.putpath    = "Data/dataputs";
 opts.expiryFile = "Data/Expiries_Futures.txt";
 opts.valueDate  = datetime(2020, 06, 02);
-opts.verbose    = true;    % report completo di calibrazione a video
-opts.plot       = true;    % plot delle distribuzioni implicite
+opts.verbose    = false;    % report completo di calibrazione a video
+opts.plot       = false;    % plot delle distribuzioni implicite
 
 [params, market] = run_ex2(opts);
 
 %% =========================================================================
 %  EX 3 - FORWARD-START PRICING (con i parametri calibrati in ex2)
 %  =========================================================================
-LA_results = run_ex3(params, market);
+opts_ex3 = struct();
+opts_ex3.plot = false;
+opts_ex3.verbose = false;
+
+LA_results = run_ex3(params, market, opts_ex3);
 
 %% =========================================================================
 %  EX 4 - CoC-PoP-Chooser PRICING (con i parametri calibrati in ex2)
 %  =========================================================================
-LA_results_es4 = run_ex4(params, market, false);
+opts_ex4 = struct();
+opts_ex4.plot = false;
+opts_ex4.verbose = false;
+opts_ex4.smart_extrap = false;
+
+LA_results_es4 = run_ex4(params, market, opts_ex4);
 
 
 %% =========================================================================
