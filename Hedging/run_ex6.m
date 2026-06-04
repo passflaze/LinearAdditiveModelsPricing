@@ -78,7 +78,7 @@ function LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_e
     % difference / dF^2 ~ /1e-8 -> dominated by FFT-interpolation / MC noise).
     % A ~0.5 $ bump on a ~35-40 $ WTI forward gives stable central-difference
     % Greeks while staying local.
-    bumps      = struct('dF', 0.5, 'dSig', bump_sigma);
+    bumps      = struct('dF', 1e-4*F_t0_t2, 'dSig', bump_sigma);
     costRule   = struct('fut_bp', 1, 'opt_bp', 4);
 
     %% ========================================================================

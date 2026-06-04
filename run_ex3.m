@@ -1,4 +1,4 @@
-function LA_results = run_ex3COPY(params, market, opts)
+function LA_results = run_ex3(params, market, opts)
 %RUN_EX3 Computes Forward Start prices using Linear Additive Models 
 %        (GL, MA, AB) and compares Analytic vs Monte Carlo results.
 

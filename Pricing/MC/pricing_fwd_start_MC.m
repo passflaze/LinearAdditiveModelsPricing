@@ -58,14 +58,29 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
     % ------------------------------
 
 
+    % if N_sim == 0
+    %     % Accuracy sizing decoupled into size_Nsim_MC and cached on disk
+    %     sig_inputs = [params(:); sigma_T1; sigma_T2; forward; B_0_t1; B_0_t2; ...
+    %                   strike(:); M; dz];
+    %     N_sim = size_Nsim_MC( ...
+    %         @(Np) nth_out(4, @pricing_fwd_start_MC, model, params, sigma_T1, sigma_T2, ...
+    %                       Np, M, dz, forward, B_0_t1, B_0_t2, strike), ...
+    %         sprintf('fwdstart_%s', upper(model)), sig_inputs, struct('ref', 1));
+    % end
     if N_sim == 0
-        % Accuracy sizing decoupled into size_Nsim_MC and cached on disk
-        sig_inputs = [params(:); sigma_T1; sigma_T2; forward; B_0_t1; B_0_t2; ...
-                      strike(:); M; dz];
-        N_sim = size_Nsim_MC( ...
-            @(Np) nth_out(4, @pricing_fwd_start_MC, model, params, sigma_T1, sigma_T2, ...
-                          Np, M, dz, forward, B_0_t1, B_0_t2, strike), ...
-            sprintf('fwdstart_%s', upper(model)), sig_inputs, struct('ref', forward));
+        % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
+        [~, ~, ~, sigma_est] = pricing_fwd_start_MC(model, params, sigma_T1, sigma_T2, ...
+        1000, M, dz, forward, B_0_t1, B_0_t2, mean(strike));
+        target_error = 10 * 1e-4; 
+        N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 5e6);
+
+        
+        % Verification print
+        fprintf('--- PILOT SIMULATION ---\n');
+        fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+        fprintf('Required N_sim:    %d\n', N_sim);
+        fprintf('------------------------\n');
     end
 
     % Lemma 2

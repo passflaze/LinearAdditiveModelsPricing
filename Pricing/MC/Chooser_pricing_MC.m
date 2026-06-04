@@ -41,16 +41,30 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
     % ------------------------------
 
     
+    % if N_sim == 0
+    %     % Accuracy sizing decoupled into size_Nsim_MC and cached on disk: the
+    %     % pilot (which also rebuilds the FFT CDF) runs ONCE per (option, model,
+    %     % inputs) and is reused. Target = 10 bps market-maker spread (Ex.4).
+    %     sig_inputs = [params(:); scale_factor(:); forward; K2; ...
+    %                   discount_factors(:); M; dz; N_grid];
+    %     N_sim = size_Nsim_MC( ...
+    %         @(Np) nth_out(5, @Chooser_pricing_MC, params, scale_factor, Np, M, dz, ...
+    %                       N_grid, forward, K2, discount_factors, model, false), ...
+    %         sprintf('Chooser_%s', model), sig_inputs, struct('ref', 1));
+    % end
     if N_sim == 0
-        % Accuracy sizing decoupled into size_Nsim_MC and cached on disk: the
-        % pilot (which also rebuilds the FFT CDF) runs ONCE per (option, model,
-        % inputs) and is reused. Target = 10 bps market-maker spread (Ex.4).
-        sig_inputs = [params(:); scale_factor(:); forward; K2; ...
-                      discount_factors(:); M; dz; N_grid];
-        N_sim = size_Nsim_MC( ...
-            @(Np) nth_out(5, @Chooser_pricing_MC, params, scale_factor, Np, M, dz, ...
-                          N_grid, forward, K2, discount_factors, model, false), ...
-            sprintf('Chooser_%s', model), sig_inputs, struct('ref', forward));
+        % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
+        [~, ~, ~, ~, sigma_est] = Chooser_pricing_MC(params, scale_factor, 1000, M, ...
+            dz, N_grid, forward, K2, discount_factors, model);
+        target_error = 10 * 1e-4; 
+        N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 5e7);
+        
+        % Verification print
+        fprintf('--- PILOT SIMULATION ---\n');
+        fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+        fprintf('Required N_sim:    %d\n', N_sim);
+        fprintf('------------------------\n');
     end
     
 
@@ -100,6 +114,7 @@ function [price, CI, ft1, call_price_t1, sigma] = Chooser_pricing_MC(params, sca
             ft1        = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);
         case 'AB'
             % params(1) = k (kappa), params(2) = eta
+            M=20;
             [cdf_fT1, z_grid]    = lewis_FFT_digital(@cf_AB, M, dz, params, ...
                              scale_factor(1), 1, 'AB', 1, opts.plot);
                              

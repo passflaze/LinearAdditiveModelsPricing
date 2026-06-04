@@ -40,15 +40,30 @@ function [price, CI, ft1, call_price_t1, sigma] = CoC_pricing_MC(params, scale_f
     end
     % ------------------------------
     
+    % if N_sim == 0
+    %     % Accuracy sizing decoupled into size_Nsim_MC and cached on disk.
+    %     % Ensure K1 is forced to a column vector K1(:) to prevent dimension errors.
+    %     sig_inputs = [params(:); scale_factor(:); forward; K1(:); K2; ...
+    %                   discount_factors(:); M; dz; N_grid];
+    %     N_sim = size_Nsim_MC( ...
+    %         @(Np) nth_out(5, @CoC_pricing_MC, params, scale_factor, Np, M, dz, ...
+    %                       N_grid, forward, K1, K2, discount_factors, model, false), ...
+    %         sprintf('CoC_%s', model), sig_inputs, struct('ref', forward));
+    % end
+
     if N_sim == 0
-        % Accuracy sizing decoupled into size_Nsim_MC and cached on disk.
-        % Ensure K1 is forced to a column vector K1(:) to prevent dimension errors.
-        sig_inputs = [params(:); scale_factor(:); forward; K1(:); K2; ...
-                      discount_factors(:); M; dz; N_grid];
-        N_sim = size_Nsim_MC( ...
-            @(Np) nth_out(5, @CoC_pricing_MC, params, scale_factor, Np, M, dz, ...
-                          N_grid, forward, K1, K2, discount_factors, model, false), ...
-            sprintf('CoC_%s', model), sig_inputs, struct('ref', forward));
+        % Run a pilot simulation to estimate standard deviation (e.g., 1000 paths)
+        [~, ~, ~, ~, sigma_est] = CoC_pricing_MC(params, scale_factor, 1000, M, dz, N_grid, forward, ...
+            K1, K2, discount_factors, model);
+        target_error = 10 * 1e-4; 
+        N_sim = min(ceil(((1.96 * sigma_est) / target_error)^2), 5e7);
+        
+        % Verification print
+        fprintf('--- PILOT SIMULATION ---\n');
+        fprintf('Estimated Std Dev: %.4f\n', sigma_est);
+        fprintf('Target Error:      10 bps (%.4f)\n', target_error);
+        fprintf('Required N_sim:    %d\n', N_sim);
+        fprintf('------------------------\n');
     end
     
     % Lemma 2 (Forward.pdf): F(T1,T2) = forward + fwd_factor * f_{T1,T1}.
@@ -89,6 +104,7 @@ function [price, CI, ft1, call_price_t1, sigma] = CoC_pricing_MC(params, scale_f
                                     scale_factor(1), 1, 'GL', 1, opts.plot);
             ft1 = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);
         case 'AB'
+            M=20;
             [cdf_fT1, z_grid] = lewis_FFT_digital(@cf_AB, M, dz, params, ...
                                     scale_factor(1), 1, 'AB', 1, opts.plot);
             ft1 = simulate_from_cdf(cdf_fT1, z_grid, 1, N_sim);

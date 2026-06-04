@@ -91,7 +91,6 @@ LA_results_es4 = run_ex4(params, market, opts_ex4);
 %% =========================================================================
 %  EX 6 - HEDGIING 
 %  =========================================================================
-clc;
 
 maturity_index = struct();
 maturity_index.call = 4;
@@ -100,6 +99,7 @@ maturity_index.future = 4;
 
 Kcall = 'ATM';
 Kput = 'ATM'; % check if ATM is dynamic
+
 % Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
 % convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
 % point gives a clean central-difference signal.
@@ -113,7 +113,7 @@ Ch_euro  = -1e6;
 % run_ex6), which spans Delta-Gamma-Vega. 'products' is kept for signature
 % compatibility but superseded by the vanilla basket.
 products = {'Call', 'Put'};
-greeks   = {'Delta', 'Gamma', 'Vega'};
+greeks   = {'Delta', 'Gamma'};
 tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
 dynamic = true;
 LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_euro, PoP_euro, Ch_euro, products, greeks, tuesdays, dynamic);
@@ -124,3 +124,4 @@ LA_results_es6 = run_ex6(maturity_index, Kcall, Kput, bump_sigma, CoC_euro, PoP_
 fprintf('\n=========================================================================\n');
 fprintf('  PROJECT 2A PIPELINE COMPLETED (EX2 calibration -> EX3 forward-start -> EX4 CoC-PoP-Chooser pricing).  \n');
 fprintf('=========================================================================\n');
+

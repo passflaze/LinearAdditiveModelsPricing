@@ -47,7 +47,7 @@ function LA_results = run_ex4(params, market, opts)
     
     M      = 16;
     dz     = 5e-3;
-    N_sim  = 1e7;
+    N_sim  = 5e7;
     N_grid = 300;
     
     F_t0_t2 = forward(iT2);
@@ -78,11 +78,11 @@ function LA_results = run_ex4(params, market, opts)
         
     fprintf('\n  > Computing Put-on-Put (MC)...\n');
     [price_PoP_GL, CI_PoP_GL, ft1_PoP_GL, put_price_t1_GL] = PoP_pricing_MC( ...
-        params_GL, scale_factor_GL, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'GL');
+        params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'GL');
         
     fprintf('\n  > Computing Chooser (MC)...\n');
     [price_Ch_GL, CI_Ch_GL, ft1_Ch_GL, call_price_Ch_t1_GL] = Chooser_pricing_MC( ...
-        params_GL, scale_factor_GL, 0, M, dz, N_grid, F_t0_t2, K2, df, 'GL', opts_local);
+        params_GL, scale_factor_GL, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'GL', opts_local);
         
     fprintf('  > Computing Sanity Checks (K1=0 CoC & Chooser Analytic)...\n\n');
     rng(1234);
@@ -109,6 +109,7 @@ function LA_results = run_ex4(params, market, opts)
     fprintf('\n  > Computing Call-on-Call (MC, Semi-Analytic, Fully Analytic)...\n');
     [price_CoC_MA_MC, CI_MA, ft1_MA, call_price_t1_MA] = CoC_pricing_MC( ...
         params_MA, scale_factor_MA, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA', opts_local);
+
     price_CoC_MA_analytic = CoC_pricing_analytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
     price_CoC_MA_FULLanalytic = CoC_pricing_FULLanalytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
     diff_CoC_MA_bps = (price_CoC_MA_FULLanalytic - price_CoC_MA_analytic) * 10000;
@@ -125,12 +126,12 @@ function LA_results = run_ex4(params, market, opts)
     
     fprintf('\n  > Computing Put-on-Put (MC & Analytical)...\n');
     [price_PoP_MA_MC, CI_PoP_MA, ft1_PoP_MA, put_price_t1_MA] = PoP_pricing_MC( ...
-        params_MA, scale_factor_MA, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA');
+        params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'MA');
     price_PoP_MA_analytic = PoP_pricing_analytical(params_MA, scale_factor_MA, F_t0_t2, K1, K2, df);
     
     fprintf('\n  > Computing Chooser (MC & Analytical)...\n');
     [price_Ch_MA_MC, CI_Ch_MA, ft1_Ch_MA, call_price_Ch_t1_MA] = Chooser_pricing_MC( ...
-        params_MA, scale_factor_MA, 0, M, dz, N_grid, F_t0_t2, K2, df, 'MA', opts_local);
+        params_MA, scale_factor_MA, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'MA', opts_local);
     price_Ch_MA_analytic = Chooser_pricing_analytic(params_MA, scale_factor_MA, df, F_t0_t2, K2);
     
     if isfield(opts, 'verbose') && opts.verbose
@@ -159,11 +160,11 @@ function LA_results = run_ex4(params, market, opts)
         
     fprintf('\n  > Computing Put-on-Put (MC)...\n');
     [price_PoP_AB, CI_PoP_AB, ft1_PoP_AB, put_price_t1_AB] = PoP_pricing_MC( ...
-        params_AB, scale_factor_AB, 0, M, dz, N_grid, F_t0_t2, K1, K2, df, 'AB');
+        params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K1, K2, df, 'AB');
         
     fprintf('\n  > Computing Chooser (MC)...\n');
     [price_Ch_AB, CI_Ch_AB, ft1_Ch_AB, call_price_Ch_t1_AB] = Chooser_pricing_MC( ...
-        params_AB, scale_factor_AB, 0, M, dz, N_grid, F_t0_t2, K2, df, 'AB', opts_local);
+        params_AB, scale_factor_AB, N_sim, M, dz, N_grid, F_t0_t2, K2, df, 'AB', opts_local);
         
     fprintf('\n  > Computing Sanity Checks (K1=0 CoC & Chooser Analytic)...\n\n');
     rng(1234);

@@ -48,9 +48,6 @@ function X_samples = simulate_from_cdf(cdf_clean, x_grid_fine, spline,N_sim)
         % =========================================================================
         % STEP 3: FIND NEAREST NEIGHBORHOOD (INDEX MAPPING)
         % =========================================================================
-        % Use 'discretize' to perform a fast O(N_sim * log(K)) binary search.
-        % It returns the index j-1 such that cdf_clean(j-1) <= U < cdf_clean(j).
-        % We add 1 to get the upper index 'j' to match the paper's notation.
         j = discretize(U, cdf_clean) + 1;
         
         % Handle edge case: if U = 1 exactly, it might map outside, clamp it to end
