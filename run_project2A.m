@@ -100,19 +100,20 @@ bump_sigma = 1e-2 * ones(8,1);
 
 CoC_euro = 0; 
 PoP_euro = 0; 
-Ch_euro  = 1e6;
+Ch_euro  = -1e6;
 
 % --- HEDGING BASKET (fully defined here) ---------------------------------
 % One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
 %   {'Call','Put'}           -> 1 call + 1 put
 %   {'Call','Call','Put'}    -> 2 calls + 1 put
 %   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+%   The strike of each leg is the caller's ABSOLUTE strike in hedge_strike (0 = ATM = forward at that leg);
+%   'Future' legs ignore the strike. Price and Greeks are AB (model-consistent with the exotic); at a calibrated strike the AB price ~ market mid.
 
-
-products        = {'Call', 'Put'};
-hedge_strike    = [   0,      0];
-hedge_mat       = [   4,      2];
-greeks          = {'Delta','Vega'};
+products        = {'Call', 'Call','Put'};
+hedge_strike    = [   0,     47 , 0];   
+hedge_mat       = [   4,      4, 4];
+greeks          = {'Delta','Gamma' ,'Vega'};
 
 tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
 dynamic  = true;
