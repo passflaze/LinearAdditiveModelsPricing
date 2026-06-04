@@ -51,8 +51,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         % STEP 1: MARKET RECALIBRATION (Silenced)
         % -----------------------------------------------------------------
         opts_current = opts_array(k);
-        [params, market] = run_ex2(opts_current);
-
+        [~, params, market] = evalc('run_ex2(opts_current)');
         iT1 = prc_params.iT1;
         iT2 = prc_params.iT2;
 
