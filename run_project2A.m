@@ -89,16 +89,142 @@ LA_results_es4 = run_ex4(params, market, opts_ex4);
 
 
 %% =========================================================================
-%  EX 6 - HEDGIING 
+%  EX 6 - HEDGING - PROVA 1 
 %  =========================================================================
 
 % Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
 % convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
 % point gives a clean central-difference signal.
+
 bump_sigma = 1e-2 * ones(8,1);
 
-CoC_euro = -1e6; 
-PoP_euro = 1e4; 
+CoC_euro = 0; 
+PoP_euro = 0; 
+Ch_euro  = 1e6;
+
+% --- HEDGING BASKET (fully defined here) ---------------------------------
+% One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
+%   {'Call','Put'}           -> 1 call + 1 put
+%   {'Call','Call','Put'}    -> 2 calls + 1 put
+%   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+
+
+products        = {'Call', 'Put'};
+hedge_strike    = [   0,      0];
+hedge_mat       = [   4,      2];
+greeks          = {'Delta','Vega'};
+
+tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
+dynamic  = true;
+LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
+                         CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
+
+%% =========================================================================
+%  EX 6 - HEDGING - PROVA 2 
+%  =========================================================================
+
+% Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
+% convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
+% point gives a clean central-difference signal.
+
+bump_sigma = 1e-2 * ones(8,1);
+
+CoC_euro = 0; 
+PoP_euro = 0; 
+Ch_euro  = 1e6;
+
+% --- HEDGING BASKET (fully defined here) ---------------------------------
+% One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
+%   {'Call','Put'}           -> 1 call + 1 put
+%   {'Call','Call','Put'}    -> 2 calls + 1 put
+%   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+
+
+products        = {'Call', 'Put'};
+hedge_strike    = [   0,      0];
+hedge_mat       = [   4,      2];
+greeks          = {'Gamma','Vega'};
+
+tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
+dynamic  = true;
+LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
+                         CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
+
+%% =========================================================================
+%  EX 6 - HEDGING - PROVA 3 
+%  =========================================================================
+
+% Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
+% convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
+% point gives a clean central-difference signal.
+
+bump_sigma = 1e-2 * ones(8,1);
+
+CoC_euro = 1e6; 
+PoP_euro = 1e6; 
+Ch_euro  = 0;
+
+% --- HEDGING BASKET (fully defined here) ---------------------------------
+% One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
+%   {'Call','Put'}           -> 1 call + 1 put
+%   {'Call','Call','Put'}    -> 2 calls + 1 put
+%   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+
+
+products        = {'Call', 'Put'};
+hedge_strike    = [   0,      0];
+hedge_mat       = [   4,      2];
+greeks          = {'Gamma','Vega'};
+
+tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
+dynamic  = true;
+LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
+                         CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
+
+%% =========================================================================
+%  EX 6 - HEDGING - PROVA 4 
+%  =========================================================================
+
+% Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
+% convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
+% point gives a clean central-difference signal.
+
+bump_sigma = 1e-2 * ones(8,1);
+
+CoC_euro = 1e6; 
+PoP_euro = 1e6; 
+Ch_euro  = 0;
+
+% --- HEDGING BASKET (fully defined here) ---------------------------------
+% One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
+%   {'Call','Put'}           -> 1 call + 1 put
+%   {'Call','Call','Put'}    -> 2 calls + 1 put
+%   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+
+
+products        = {'Call', 'Put', 'Future'};
+hedge_strike    = [   0,      0,         0];
+hedge_mat       = [   4,      2,         4];
+greeks          = {'Gamma','Vega', 'Delta'};
+
+tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
+dynamic  = true;
+LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
+                         CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
+
+
+%% =========================================================================
+%  EX 6 - HEDGING - PROVA 5 
+%  =========================================================================
+
+% Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
+% convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
+% point gives a clean central-difference signal.
+
+bump_sigma = 1e-2 * ones(8,1);
+
+CoC_euro = 1e6; 
+PoP_euro = 0; 
 Ch_euro  = -1e6;
 
 % --- HEDGING BASKET (fully defined here) ---------------------------------
@@ -106,19 +232,47 @@ Ch_euro  = -1e6;
 %   {'Call','Put'}           -> 1 call + 1 put
 %   {'Call','Call','Put'}    -> 2 calls + 1 put
 %   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
-% hedge_moneyness : per-leg strike as a $-offset from the ATM forward (0=ATM);
-%                   distinct values give independent gamma/vega (needed to span
-%                   Delta-Gamma-Vega). Ignored for 'Future'.
-% hedge_mat       : per-leg maturity index (4 = T2, the exotic's terminal leg).
-% Use as many independent instruments as targeted Greeks for an exact hedge.
-products        = {'Call', 'Call', 'Put'};
-hedge_moneyness = [   0,     +8,    -8 ];
-hedge_mat       = [   4,      4,     4 ];
-greeks          = {'Delta', 'Gamma', 'Vega'};
+
+
+products        = {'Call'};
+hedge_strike    = [   0];
+hedge_mat       = [   4];
+greeks          = {'Vega'};
 
 tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
 dynamic  = true;
-LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sigma, ...
+LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
+                         CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
+
+%% =========================================================================
+%  EX 6 - HEDGING - PROVA 6
+%  =========================================================================
+
+% Vol bump for the (recalibrated) vega: 1e-4 = 1 bp was below the fmincon
+% convergence tolerance -> vega dominated by optimizer noise. 1e-2 = 1 vol
+% point gives a clean central-difference signal.
+
+bump_sigma = 1e-2 * ones(8,1);
+
+CoC_euro = 1e6; 
+PoP_euro = 0; 
+Ch_euro  = -1e6;
+
+% --- HEDGING BASKET (fully defined here) ---------------------------------
+% One instrument per entry of 'products' ('Call' | 'Put' | 'Future').
+%   {'Call','Put'}           -> 1 call + 1 put
+%   {'Call','Call','Put'}    -> 2 calls + 1 put
+%   {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
+
+
+products        = {'Call'};
+hedge_strike    = [ 0];
+hedge_mat       = [ 4];
+greeks          = {'Delta'};
+
+tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
+dynamic  = true;
+LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic);
 
 %% =========================================================================

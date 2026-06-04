@@ -1,4 +1,4 @@
-function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sigma, CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic)
+function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic)
 % RUN_EX6_HEDGING  Dynamic wrapper for Risk Management Delta-Gamma-Vega hedge.
 %
 %   The hedging basket is driven ENTIRELY by the caller: one instrument per
@@ -7,13 +7,13 @@ function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sig
 %       {'Call','Call','Put'}    -> 2 calls (same/different K) + 1 put
 %       {'Call','Put','Future'}  -> 1 call + 1 put + 1 future
 %   Strikes and maturities for each leg are also chosen by the caller via
-%   hedge_moneyness and hedge_mat (see below). For an EXACT hedge use as many
+%   hedge_strike and hedge_mat (see below). For an EXACT hedge use as many
 %   independent instruments as targeted Greeks (e.g. 3 for Delta-Gamma-Vega);
 %   same-strike call & put are gamma/vega-redundant (build_hedge warns).
 %
 % INPUTS:
 %   products        - (cell) one kind per instrument: 'Call' | 'Put' | 'Future'
-%   hedge_moneyness - (vector) per-leg strike as a $-offset from the ATM forward
+%   hedge_strike - (vector) per-leg strike as a $-offset from the ATM forward
 %                     at that leg (0 = ATM). Ignored for 'Future'. Same length
 %                     as products.
 %   hedge_mat       - (vector) per-leg maturity index (e.g. 4 = T2). Same length
@@ -112,7 +112,7 @@ function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sig
     %  3. HEDGING BASKET (driven by the caller's 'products' spec) & GREEKS (t0)
     %  ========================================================================
     % One instrument per entry of 'products'. Strike of each leg is the ATM
-    % forward at its maturity plus the caller's $-offset (hedge_moneyness);
+    % forward at its maturity plus the caller's $-offset (hedge_strike);
     % 'Future' legs ignore the offset. For an exact Delta-Gamma-Vega hedge use
     % >= 3 independent instruments (distinct strikes); a same-strike call+put
     % share gamma & vega (build_hedge warns via rank / cond(A)).
@@ -121,10 +121,10 @@ function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sig
     empty_greek = struct('price', 0, 'delta', 0, 'gamma', 0, 'vega', 0);
 
     nP = numel(products);
-    if numel(hedge_moneyness) ~= nP || numel(hedge_mat) ~= nP
+    if numel(hedge_strike) ~= nP || numel(hedge_mat) ~= nP
         error('run_ex6:basketSpec', ...
-              ['products (%d), hedge_moneyness (%d) and hedge_mat (%d) must ', ...
-               'have the same length.'], nP, numel(hedge_moneyness), numel(hedge_mat));
+              ['products (%d), hedge_strike (%d) and hedge_mat (%d) must ', ...
+               'have the same length.'], nP, numel(hedge_strike), numel(hedge_mat));
     end
 
     basket = repmat(struct('kind', '', 'K', NaN, 'mat', NaN), nP, 1);
@@ -132,9 +132,19 @@ function LA_results_es6 = run_ex6(products, hedge_moneyness, hedge_mat, bump_sig
         kind = lower(products{j});
         matj = hedge_mat(j);
         if strcmpi(kind, 'future')
-            Kj = NaN;                                   % strike irrelevant
+            Kj = NaN;                                   
         else
-            Kj = market.forward(matj) + hedge_moneyness(j);   % ATM(leg) + $ offset
+            if iscell(hedge_strike)
+                hs_val = hedge_strike{j};
+            else
+                hs_val = hedge_strike(j);
+            end
+            
+            if isnumeric(hs_val) && hs_val == 0
+                Kj = market.forward(matj);
+            else
+                Kj = hs_val;
+            end
         end
         basket(j) = struct('kind', kind, 'K', Kj, 'mat', matj);
     end
