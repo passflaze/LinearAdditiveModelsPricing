@@ -13,9 +13,9 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
 %
 % INPUTS:
 %   products        - (cell) one kind per instrument: 'Call' | 'Put' | 'Future'
-%   hedge_strike - (vector) per-leg strike as a $-offset from the ATM forward
-%                     at that leg (0 = ATM). Ignored for 'Future'. Same length
-%                     as products.
+%   hedge_strike    - (vector) per-leg ABSOLUTE strike in $. The special value
+%                     0 means ATM (= forward at that leg). Ignored for 'Future'.
+%                     Same length as products.
 %   hedge_mat       - (vector) per-leg maturity index (e.g. 4 = T2). Same length
 %                     as products.
 %   bump_sigma      - (array) Bumps for finite differences (vol)
@@ -111,11 +111,11 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     %% ========================================================================
     %  3. HEDGING BASKET (driven by the caller's 'products' spec) & GREEKS (t0)
     %  ========================================================================
-    % One instrument per entry of 'products'. Strike of each leg is the ATM
-    % forward at its maturity plus the caller's $-offset (hedge_strike);
-    % 'Future' legs ignore the offset. For an exact Delta-Gamma-Vega hedge use
-    % >= 3 independent instruments (distinct strikes); a same-strike call+put
-    % share gamma & vega (build_hedge warns via rank / cond(A)).
+    % One instrument per entry of 'products'. Strike of each leg is the caller's
+    % absolute strike in hedge_strike (0 = ATM = forward at that leg); 'Future'
+    % legs ignore the strike. For an exact Delta-Gamma-Vega hedge use >= 3
+    % independent instruments (distinct strikes); a same-strike call+put share
+    % gamma & vega (build_hedge warns via rank / cond(A)).
     fprintf('Building hedging basket from products spec...\n');
 
     empty_greek = struct('price', 0, 'delta', 0, 'gamma', 0, 'vega', 0);
@@ -127,9 +127,9 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
                'have the same length.'], nP, numel(hedge_strike), numel(hedge_mat));
     end
 
-    % Target strike = ATM forward(leg) + $ offset, then SNAP to the nearest
-    % quoted strike so the hedge instruments are actually tradable. Price and
-    % Greeks stay AB (model-consistent with the exotic); at a calibrated strike
+    % Each vanilla leg uses the caller's ABSOLUTE strike from hedge_strike
+    % (the special value 0 is resolved to ATM = forward at that leg). Price and
+    % Greeks are AB (model-consistent with the exotic); at a calibrated strike
     % the AB price ~ market mid.
     basket = repmat(struct('kind', '', 'K', NaN, 'mat', NaN), nP, 1);
     for j = 1:nP
@@ -153,14 +153,13 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
         basket(j) = struct('kind', kind, 'K', Kj, 'mat', matj);
     end
 
-    % Warn if snapping collapsed two vanilla legs onto the SAME (kind,K,mat):
-    % they would be identical instruments -> rank-deficient hedge.
+    % Warn if two vanilla legs share the SAME (kind, K, mat): they would be
+    % identical instruments -> rank-deficient hedge.
     vkey = arrayfun(@(b) sprintf('%s_%.6g_%d', b.kind, b.K, b.mat), basket, 'uni', 0);
     if numel(unique(vkey)) < nP
         warning('run_ex6:DuplicateStrikes', ...
-            ['Snapping collapsed two legs onto the same quoted strike: the ', ...
-             'basket has redundant instruments. Spread the hedge_moneyness ', ...
-             'values further apart.']);
+            ['Two legs share the same (kind, strike, maturity): the basket has ', ...
+             'redundant instruments. Use distinct hedge_strike / hedge_mat values.']);
     end
 
     fprintf('Computing initial Greeks for the hedging basket...\n');

@@ -104,7 +104,11 @@ for i = 1:length(forward)
 end
 
 sigma_ATM = sigmaATM(c_ATM, discount_factor, yf, expiries, opts.plot);
-check_term_structure(sigma_ATM, yf, expiries);
+if opts.verbose
+    check_term_structure(sigma_ATM, yf, expiries);
+else
+    evalc('check_term_structure(sigma_ATM, yf, expiries);');   % silence diagnostic
+end
 
 x_min = opts.x_min;
 x_max = opts.x_max;
@@ -173,8 +177,16 @@ vb('\n  -> MA Calibration completed (exitflag = %d, SSE = %.6g).\n', exitflag_MA
 vb('  -> Fixed scale: alpha = %.6f (gauge); calibrated beta = %.6f.\n', alpha_MA, beta_MA);
 vb('  -> Asymmetry ratio beta/alpha = %.6f.\n\n', beta_MA/alpha_MA);
 
-check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
-    sigma_ATM, moneyness_modified, c_mkt_calibration, expiries);
+% Heavy MA skew diagnostic: prints a report AND draws a figure. Run it only
+% when the full report is requested (verbose) or plots are on; keep the console
+% clean otherwise (and skip the stray figure when plot=false).
+if opts.verbose
+    check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ...
+        sigma_ATM, moneyness_modified, c_mkt_calibration, expiries);
+elseif opts.plot
+    evalc(['check_skew_MA(alpha_MA, beta_MA, discount_factor, yf, ', ...
+           'sigma_ATM, moneyness_modified, c_mkt_calibration, expiries);']);
+end
 
 %% =========================================================================
 % STEP 5: GENERALIZED LAPLACE (GL) MODEL CALIBRATION
@@ -204,6 +216,18 @@ if opts.verbose
     print_diagnostics(k_AB, eta_AB, fval_AB, alpha_MA, beta_MA, fval_MA, ...
         alpha_GL, beta_GL, fval_GL, M, dz, discount_factor, yf, sigma_ATM, ...
         moneyness_modified, c_mkt_calibration, expiries, nT, opts.plot);
+else
+    % Compact report (verbose=false): discount factors + calibrated parameters.
+    fprintf('\n--- Discount Factors (Value Date: %s) ---\n', string(opts.valueDate, "yyyy-MM-dd"));
+    fprintf('%-12s  %12s  %12s\n', 'Expiry', 'D(t,T)', 'F(t,T)');
+    for kk = 1:nT
+        fprintf('%-12s  %12.6f  %12.4f\n', string(expiries(kk), "yyyy-MM-dd"), ...
+                discount_factor(kk), forward(kk));
+    end
+    fprintf('\n--- Calibrated Parameters ---\n');
+    fprintf('  AB : k     = %9.6f | eta  = %9.6f   (SSE = %.4g)\n', k_AB, eta_AB, fval_AB);
+    fprintf('  MA : alpha = %9.6f | beta = %9.6f   (SSE = %.4g)\n', alpha_MA, beta_MA, fval_MA);
+    fprintf('  GL : alpha = %9.6f | beta = %9.6f   (SSE = %.4g)\n\n', alpha_GL, beta_GL, fval_GL);
 end
 
 params = struct();
