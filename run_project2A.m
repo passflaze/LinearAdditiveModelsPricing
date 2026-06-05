@@ -65,6 +65,7 @@ clear; clc; close all;
 % =========================================================================
 % PATHS INITIALIZATION
 % =========================================================================
+addpath("Run_Functions/");
 addpath("Utilities/");
 addpath("Distributions/");
 addpath("Calibration/");
@@ -89,6 +90,7 @@ opts_ex2.callpath   = "Data/datacalls";
 opts_ex2.putpath    = "Data/dataputs";
 opts_ex2.expiryFile = "Data/Expiries_Futures.txt";
 opts_ex2.valueDate  = datetime(2020, 06, 02);
+
 opts_ex2.verbose    = false;   
 opts_ex2.plot       = false;    
 
@@ -101,6 +103,7 @@ opts_ex3 = struct();
 opts_ex3.plot = false;
 opts_ex3.verbose = false;
 opts_ex3.K2 = 1;
+
 opts_ex3.mc = struct();
 opts_ex3.mc.dz_MA = 5e-3;
 opts_ex3.mc.Nsim_MA = 0;
@@ -121,6 +124,7 @@ opts_ex4 = struct();
 opts_ex4.plot = false;
 opts_ex4.verbose = false;
 opts_ex4.smart_extrap = false;
+
 opts_ex4.K1 = 1;
 opts_ex4.K2 = 'ATM';
 opts_ex4.mc = struct();
@@ -137,7 +141,11 @@ opts_ex4.mc.M_AB = 20;
 LA_results_es4 = run_ex4(params, market, opts_ex4);
 
 %% =========================================================================
-%  EX 6 - HEDGING - TEST 1 
+%  EX 6 - HEDGING 
+%  =========================================================================
+
+%% =========================================================================
+%  Scenario 1 - Long Chooser Delta-Vega Hedging
 %  =========================================================================
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 0; 
@@ -159,7 +167,7 @@ LA_results_es6.test1 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ..
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
 %% =========================================================================
-%  EX 6 - HEDGING - TEST 2 
+%  Scenario 1 - Long Chooser Gamma-Vega Hedging
 %  =========================================================================
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 0; 
@@ -181,7 +189,7 @@ LA_results_es6.test2 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ..
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
 %% =========================================================================
-%  EX 6 - HEDGING - TEST 3 
+%  Scenario 2 - Long CoC, PoP Gamma-Vega Hedging
 %  =========================================================================
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
@@ -203,7 +211,7 @@ LA_results_es6.test3 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ..
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
 %% =========================================================================
-%  EX 6 - HEDGING - TEST 4 
+%  Scenario 2 - Long CoC, PoP Delta-Gamma-Vega Hedging
 %  =========================================================================
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
@@ -225,7 +233,7 @@ LA_results_es6.test4 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ..
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
 %% =========================================================================
-%  EX 6 - HEDGING - TEST 5 
+%  Scenario 3 - Long CoC, Short Chooser Vega Hedging
 %  =========================================================================
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
@@ -247,7 +255,7 @@ LA_results_es6.test5 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ..
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
 %% =========================================================================
-%  EX 6 - HEDGING - TEST 6
+%  Scenario 3 - Long CoC, Short Chooser Delta Hedging
 %  =========================================================================
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
@@ -274,7 +282,7 @@ LA_results_es6.test6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ..
 plot_backtest_results(LA_results_es6);
 
 %% =========================================================================
-%  DONE
+%  COMPLETED
 %  =========================================================================
 fprintf('\n=========================================================================\n');
 fprintf('  PROJECT 2A PIPELINE COMPLETED\n');
