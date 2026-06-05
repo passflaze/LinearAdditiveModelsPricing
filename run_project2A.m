@@ -251,8 +251,8 @@ fprintf('    Target Greeks: Delta\n');
 LA_results_es6.test6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% Final backtest comparison
-plot_backtest_results(LA_results_es6);
+
+%% -------------------------------------------------------------------------------
 
 fprintf('\n=========================================================================\n');
 fprintf('  PROJECT 2A PIPELINE COMPLETED\n');

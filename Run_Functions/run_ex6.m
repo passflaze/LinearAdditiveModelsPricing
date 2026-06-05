@@ -91,7 +91,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
 
     mc = struct('N_sim', 1e6, 'M', 16, 'dz', 5e-3, 'N_grid', 300, 'seed', 1234);
 
-    bumps      = struct('dF', 1e-4*F_t0_t2, 'dSig', bump_sigma);
+    bumps      = struct('dF', 1e-2*F_t0_t2, 'dSig', bump_sigma);
     costRule   = struct('fut_bp', 1, 'opt_bp', 4);
 
     %% --- Hedging basket and initial Greeks (t0) ---

@@ -49,7 +49,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
 
         % --- Market recalibration ---
         opts_current = opts_array(k);
-        [~, params, market] = evalc('run_ex2(opts_current)');
+        [params, market] = run_ex2(opts_current);
         iT1 = prc_params.iT1;
         iT2 = prc_params.iT2;
 
@@ -175,15 +175,6 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
     fprintf('\n--- HEDGED vs UNHEDGED ---\n');
     fprintf('Unhedged P&L (exotic only)   : %+.4e\n', res.Total_Unhedged_PnL);
     fprintf('Hedged Net P&L (after costs) : %+.4e\n', total_net_pnl);
-    % Per-step P&L volatility: the real point of hedging is variance reduction.
-    if N_steps >= 2
-        std_unhedged = std(res.PnL_exotic);
-        std_hedged   = std(res.Net_PnL);
-        res.Std_Unhedged = std_unhedged;
-        res.Std_Hedged   = std_hedged;
-        fprintf('Std of step P&L  unhedged    : %.4e\n', std_unhedged);
-        fprintf('Std of step P&L  hedged      : %.4e   (variance reduction: %.1f%%)\n', ...
-                std_hedged, 100 * (1 - std_hedged / max(std_unhedged, eps)));
-    end
+    
 
 end
