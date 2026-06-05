@@ -197,4 +197,5 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         fprintf('Std of step P&L  hedged      : %.4e   (variance reduction: %.1f%%)\n', ...
                 std_hedged, 100 * (1 - std_hedged / max(std_unhedged, eps)));
     end
+
 end

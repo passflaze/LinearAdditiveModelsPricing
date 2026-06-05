@@ -30,17 +30,17 @@ function V = price_exotic_AB(type, params_AB, scale_factor, mkt, params_hedge, m
         case 'COC'
             rng(mc.seed);
             V = CoC_pricing_MC(params_AB, scale_factor, mc.N_sim, mc.M, mc.dz, ...
-                    mc.N_grid, params_hedge.forward, params_hedge.K1, params_hedge.K2, discount_factors, model);
+                     params_hedge.forward, params_hedge.K1, params_hedge.K2, discount_factors, model);
 
         case 'POP'
             rng(mc.seed);
             V = PoP_pricing_MC(params_AB, scale_factor, mc.N_sim, mc.M, mc.dz, ...
-                    mc.N_grid, params_hedge.forward, params_hedge.K1, params_hedge.K2, discount_factors, model);
+                     params_hedge.forward, params_hedge.K1, params_hedge.K2, discount_factors, model);
 
         case 'CHOOSER'
             rng(mc.seed);
             V = Chooser_pricing_MC(params_AB, scale_factor, mc.N_sim, mc.M, mc.dz, ...
-                    mc.N_grid, params_hedge.forward, params_hedge.K2, discount_factors, model);
+                     params_hedge.forward, params_hedge.K2, discount_factors, model);
 
         otherwise
             error('price_exotic_AB:badType', ...

@@ -1,4 +1,4 @@
-function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic)
+function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market)
 % RUN_EX6_HEDGING  Dynamic wrapper for Risk Management Delta-Gamma-Vega hedge.
 %
 %   The hedging basket is driven ENTIRELY by the caller: one instrument per
@@ -75,8 +75,9 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     opts.verbose    = false;    
     opts.plot       = false;    
 
-    fprintf('Calibrating market data...\n');
-    [params, market] = run_ex2(opts);
+    if nargin < 12 || isempty(params) || isempty(market)
+        [~, params, market] = evalc('calibrate_surface(struct(''verbose'', false))');
+    end
 
     % Time indices
     iT1 = 2;  
@@ -97,14 +98,11 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     params_hedge.forward = F_t0_t2;
     params_hedge.K1      = 1;
     params_hedge.K2      = F_t0_t2;
-    params_hedge.Kc      = F_t0_t2;   % ATM default (only used by the exotic vega path)
+    params_hedge.Kc      = F_t0_t2;   % ATM default
 
     % Numerical & Simulation Settings
     mc = struct('N_sim', 1e6, 'M', 16, 'dz', 5e-3, 'N_grid', 300, 'seed', 1234);
-    % Forward bump for Delta/Gamma: 1e-4 $ was far too small (gamma = second
-    % difference / dF^2 ~ /1e-8 -> dominated by FFT-interpolation / MC noise).
-    % A ~0.5 $ bump on a ~35-40 $ WTI forward gives stable central-difference
-    % Greeks while staying local.
+
     bumps      = struct('dF', 1e-4*F_t0_t2, 'dSig', bump_sigma);
     costRule   = struct('fut_bp', 1, 'opt_bp', 4);
 
@@ -113,9 +111,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     %  ========================================================================
     % One instrument per entry of 'products'. Strike of each leg is the caller's
     % absolute strike in hedge_strike (0 = ATM = forward at that leg); 'Future'
-    % legs ignore the strike. For an exact Delta-Gamma-Vega hedge use >= 3
-    % independent instruments (distinct strikes); a same-strike call+put share
-    % gamma & vega (build_hedge warns via rank / cond(A)).
+    % legs ignore the strike. 
     fprintf('Building hedging basket from products spec...\n');
 
     empty_greek = struct('price', 0, 'delta', 0, 'gamma', 0, 'vega', 0);
@@ -127,10 +123,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
                'have the same length.'], nP, numel(hedge_strike), numel(hedge_mat));
     end
 
-    % Each vanilla leg uses the caller's ABSOLUTE strike from hedge_strike
-    % (the special value 0 is resolved to ATM = forward at that leg). Price and
-    % Greeks are AB (model-consistent with the exotic); at a calibrated strike
-    % the AB price ~ market mid.
+
     basket = repmat(struct('kind', '', 'K', NaN, 'mat', NaN), nP, 1);
     for j = 1:nP
         kind = lower(products{j});
@@ -153,8 +146,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
         basket(j) = struct('kind', kind, 'K', Kj, 'mat', matj);
     end
 
-    % Warn if two vanilla legs share the SAME (kind, K, mat): they would be
-    % identical instruments -> rank-deficient hedge.
+
     vkey = arrayfun(@(b) sprintf('%s_%.6g_%d', b.kind, b.K, b.mat), basket, 'uni', 0);
     if numel(unique(vkey)) < nP
         warning('run_ex6:DuplicateStrikes', ...
@@ -165,10 +157,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     fprintf('Computing initial Greeks for the hedging basket...\n');
     instr = price_hedge_basket(basket, params.AB, scale_factor_vanilla, market, params_hedge, mc, bumps);
 
-    % Filter active exotics by NON-ZERO budget. Sign convention:
-    %   budget > 0  -> LONG  ~ floor(+budget/price) units
-    %   budget < 0  -> SHORT ~ -floor(|budget|/price) units
-    %   budget = 0  -> excluded
+
     fprintf('Computing initial Greeks for ACTIVE Exotic Portfolio...\n');
     all_exotics = {'CoC', 'PoP', 'Chooser'};
     all_budgets = [CoC_euro, PoP_euro, Ch_euro];
@@ -186,7 +175,6 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     for ee = 1:nE
         G(ee) = greeks_exotic_AB(active_exotics{ee}, params.AB, scale_factor_exotic, market, params_hedge, mc, bumps);
 
-        % Signed quantity: |budget| sets the size, sign sets long/short.
         w_exotics(ee) = sign(active_budgets(ee)) * floor(abs(active_budgets(ee)) / G(ee).price);
 
         % Aggregate unitary portfolio Greeks
@@ -214,9 +202,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     %  ========================================================================
     fprintf('Initializing dynamic backtest...\n');
     
-    % Build initial state at t0. cost_t0 = day-0 SLIPPAGE only: the premium
-    % paid to open the hedge is already embedded in V_hedge (self-financing
-    % baseline), so only the bid-ask friction is a true cost.
+
     prices0 = [instr.price]';
     state_t0 = struct( ...
         'V_exotic', port_t0_price, ...
@@ -225,9 +211,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
         'cost_t0',  costs.slippage ...
     );
 
-    % Pack pricing parameters required inside the forward loop.
-    % Non-scalar values (w_exotics, basket, active_exotics) are wrapped in a
-    % cell so struct() does NOT replicate prc_params into a struct array.
+
     prc_params = struct( ...
         'exotics',      {active_exotics}, ...
         'w_exotics',    {w_exotics}, ...
@@ -239,10 +223,6 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
         'basket',       {basket} ...
     );
 
-    % Define behavior for dynamic hedging. The rebalancing trigger is RELATIVE:
-    % rebalance a Greek only when the residual exceeds rel_tol * |exotic Greek|
-    % (i.e. the hedge error exceeds 5% of the gross exposure). Absolute 0.05
-    % thresholds vs Greeks of order 1e3-1e5 made the trigger fire every step.
     hedge_rules = struct( ...
         'is_dynamic', dynamic, ...
         'rel_tol',    0.05, ...
