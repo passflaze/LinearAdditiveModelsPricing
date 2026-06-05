@@ -33,57 +33,32 @@ function X_samples = simulate_from_cdf(cdf_clean, x_grid_fine, spline, N_sim)
         X_samples = interp1(cdf_clean,x_grid_fine,U,'pchip','extrap');
 
     else
-    % =========================================================================
-    % STEP 1: GENERATE THE CLEAN NUMERICAL CDF
-    % =========================================================================
-    % Call the robust FFT inversion routine (which includes tail adjustment)
-        
-        
+        % Force exact bounds so every U is bracketed.
         cdf_clean(1) = 0;
         cdf_clean(end) = 1;
-    
-        % =========================================================================
-        % STEP 2: GENERATE UNIFORM RANDOM VARIABLES
-        % =========================================================================
-        % Generate N_sim standard uniform random variables U ~ U(0,1)
+
         U = rand(N_sim, 1);
-    
-        % =========================================================================
-        % STEP 3: FIND NEAREST NEIGHBORHOOD (INDEX MAPPING)
-        % =========================================================================
+
+        % Bracket each U between adjacent CDF nodes; clamp U = 1 to the last bin.
         j = discretize(U, cdf_clean) + 1;
-        
-        % Handle edge case: if U = 1 exactly, it might map outside, clamp it to end
         j(j > length(cdf_clean)) = length(cdf_clean);
-    
-        % =========================================================================
-        % STEP 4: EXTRACT LOCAL GRID POINTS
-        % =========================================================================
-        % For each simulated U, extract the bounding CDF values and X coordinates
+
+        % Bounding CDF values and x-coordinates of each bracket.
         P_j = cdf_clean(j);
         P_j_minus_1 = cdf_clean(j - 1);
-        
+
         X_j = x_grid_fine(j);
         X_j_minus_1 = x_grid_fine(j - 1);
-        
-        % Calculate the spatial step size (gamma in the paper)
+
         gamma = X_j - X_j_minus_1;
-    
-        % =========================================================================
-        % STEP 5: COMPUTE INTERPOLATION COEFFICIENTS
-        % =========================================================================
-        % Note: Since our CDF is strictly monotonic after tail_adjustment, 
-        % the denominator (P_j - P_j_minus_1) is strictly > 0, avoiding DivByZero.
-        
+
+        % delta_P > 0 because the CDF is strictly monotonic after tail_adjustment.
         delta_P = P_j - P_j_minus_1;
-        
+
         c_1 = gamma ./ delta_P;
         c_0 = (X_j .* P_j_minus_1 - X_j_minus_1 .* P_j) ./ delta_P;
-    
-        % =========================================================================
-        % STEP 6: COMPUTE FINAL SAMPLES
-        % =========================================================================
-        % Linear inversion formula: X = c_0 + c_1 * U
+
+        % Local linear inversion: X = c_0 + c_1 * U.
         X_samples = c_0 + c_1 .* U;
     end
 

@@ -1,11 +1,14 @@
 function plot_mc_check(Z, x_grid, cdf, T1, T2)
-% Compare MC simulated increments against the FFT-reconstructed CDF/PDF.
+% PLOT_MC_CHECK  Compare MC simulated increments against the FFT-reconstructed
+%   CDF/PDF (pdf on linear and log-y scales, plus a binning-free CDF overlay).
 %
-% Inputs:
+% INPUTS:
 %   Z      : Nsim x 1 simulated increments (from simulate_from_cdf)
 %   x_grid : spatial grid of the FFT-reconstructed CDF (from lewis_FFT_digital)
 %   cdf    : CDF values on x_grid (from lewis_FFT_digital)
 %   T1, T2 : reset dates (years)
+% OUTPUT:
+%   none (draws a 3-panel comparison figure)
 
 in_bounds = (cdf > 0) & (cdf < 1);
 x_v = x_grid(find(in_bounds,1,'first') : find(in_bounds,1,'last'));

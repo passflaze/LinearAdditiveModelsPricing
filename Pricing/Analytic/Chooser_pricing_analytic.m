@@ -15,18 +15,12 @@ function chooser_price = Chooser_pricing_analytic(params, scale_factor, df, F_t0
 % Output:
 %   chooser_price - The fair value of the Chooser option at t0.
 
-    % =========================================================================
-    % DEFAULT ARGUMENT HANDLING
-    % =========================================================================
     if nargin < 6 || isempty(diagnostic)
         diagnostic = false;
     end
-    
-    if diagnostic, tic; end % Start execution timer
-    
-    % =========================================================================
-    % DIAGNOSTICS: INPUT VALIDATION
-    % =========================================================================
+
+    if diagnostic, tic; end
+
     if diagnostic
         fprintf('\n==================================================\n');
         fprintf('  RUNNING DIAGNOSTICS FOR Chooser_pricing_analytic\n');
@@ -38,10 +32,6 @@ function chooser_price = Chooser_pricing_analytic(params, scale_factor, df, F_t0
         fprintf('  K2 (Chooser Strike):  %10.4f\n', K2(1)); % Indexing prevents vector print overflow
         fprintf('  F(t0,T2) Initial Fwd: %10.4f\n', F_t0_T2);
     end
-    
-    % =========================================================================
-    % CORE PRICING LOGIC
-    % =========================================================================
     
     % 1. Calculate the relative strike 'k' (moneyness for additive processes)
     k = K2 - F_t0_T2;
@@ -68,10 +58,7 @@ function chooser_price = Chooser_pricing_analytic(params, scale_factor, df, F_t0
     
     % 5. Final Chooser Price: Base Put + Option to Choose
     chooser_price = put_price_t2 + price_choice;
-    
-    % =========================================================================
-    % DIAGNOSTICS: OUTPUT REPORTING
-    % =========================================================================
+
     if diagnostic
         elapsed = toc;
         fprintf('\nSTEP 3 - FINAL OUTPUTS:\n');

@@ -110,9 +110,7 @@ function R = smart_extrapolation_check(models, params_list, scale_list, ...
               Price_smartOFF, AbsErr_OFF, Price_smartON, AbsErr_ON);
 end
 
-% =========================================================================
-%  Helpers
-% =========================================================================
+% --- Local helpers ---
 function [cf_marg, cf_inc] = model_cf_handles(model)
 % Marginal CF at t1 (for sampling ft1) and increment CF t1->t2 (inner call).
     switch upper(model)

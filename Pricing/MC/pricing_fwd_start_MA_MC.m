@@ -25,9 +25,6 @@ function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, 
 %       CI        : 95% confidence interval for the mean, [lower; upper]
 %       sigma     : sample standard deviation of the discounted payoff
 
-    % =========================================================================
-    % STEP 0: INPUT VALIDATION & INITIALIZATION
-    % =========================================================================
     % --- Options Initialization ---
     if nargin < 11 || isempty(opts)
         opts = struct();
@@ -61,16 +58,14 @@ function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, 
     % end
     
 
-    % =========================================================================
-    % STEP 1: INTERNAL PARAMETER COMPUTATION
-    % =========================================================================
-    % 1.1 Asymmetry factor
+    % --- Internal parameter computation ---
+    % Asymmetry factor
     gamma_MA = (1/alpha_MA) - (1/beta_MA);
 
-    % Model parameters as a column vector 
+    % Model parameters as a column vector
     params = [alpha_MA; beta_MA];
-   
-    % 1.4 Tail decay parameters for t1 (s) and t2 (t).
+
+    % Tail decay parameters for t1 (s) and t2 (t).
     sigmat_s = fwd_factor * sigmat(1);
 
     ps_plus  = beta_MA  / sigmat_s;
@@ -79,11 +74,11 @@ function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, 
     pt_plus  = beta_MA  / sigmat(2);
     pt_minus = alpha_MA / sigmat(2);
 
-    % 1.5 Drift vector calculation
+    % Drift vector
     drift_0_t1  = gamma_MA * (sigmat(1) - 0);
     drift_t1_t2 = gamma_MA * (sigmat(2) - sigmat_s);
-    
-    % 1.6 FFT Damping shifts (using half of the poles bounds)
+
+    % FFT damping shifts (half of the pole bounds)
     shift_pos_1 =  ps_minus / 2;
     shift_neg_1 = -ps_plus  / 2;
     
@@ -115,38 +110,25 @@ function [price, CI, sigma] = pricing_fwd_start_MA_MC(forward, K, df, N_sim, M, 
         fprintf('  -> ps_minus(sub): %.6f\n', ps_minus);
         fprintf('==================================================\n\n');
     end
-    % =========================================================================
-    % STEP 2: SIMULATE THE FIRST LEG [0 to t1]
-    % =========================================================================
-
+    % --- First leg [0 to t1]: infinite-activity base ---
     ft0t1 = FA_simulation(N_sim, M, dz, drift_0_t1, ...
                           ps_plus, ps_minus, 0, 0, 1, 'infinite', 1, ...
                           params, sigmat(1), opts.plot);
 
-    % =========================================================================
-    % STEP 3: SIMULATE THE INCREMENT [t1 to t2]
-    % =========================================================================
-
+    % --- Increment leg [t1 to t2]: finite activity ---
     ft1t2 = FA_simulation(N_sim, M, dz, drift_t1_t2, ...
                           pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1, ...
                           params, [sigmat_s; sigmat(2)], opts.plot);
 
-    % =========================================================================
-    % STEP 4: ASSEMBLE PATHS & PAYOFF
-    % =========================================================================
-
-    F_T1_T2 = forward + fwd_factor * ft0t1; % Size: (N_sim, 1)
-
-    St2 = forward + fwd_factor * ft0t1 + ft1t2;     % Size: (N_sim, 1)
-
-    K = K(:)'; % Size: (1, N_K)
+    % --- Assemble paths and payoff ---
+    F_T1_T2 = forward + fwd_factor * ft0t1;         % (N_sim, 1)
+    St2 = forward + fwd_factor * ft0t1 + ft1t2;     % (N_sim, 1)
+    K = K(:)';                                       % (1, N_K)
 
     payoff = max(St2 - K .* F_T1_T2, 0);
     discounted_payoff = df * payoff;
-    
-    % =========================================================================
-    % STEP 5: FINAL PRICING AND CONFIDENCE INTERVAL (95%)
-    % =========================================================================
+
+    % --- Final pricing and 95% confidence interval ---
     [price, sigma, CI, ~] = normfit(discounted_payoff);
 
 end

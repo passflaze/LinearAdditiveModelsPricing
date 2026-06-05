@@ -1,21 +1,16 @@
 function call_price_t1 = call_pricing_analytic_increments_MA(strike,params, scale_factor, df, diagnostic)
-% CALL_PRICING_ANALYTIC Computes the exact analytic price of a Vanilla Call 
-% evaluated at t1 (expiring at t2) under the Minimal Additive model.
+% CALL_PRICING_ANALYTIC_INCREMENTS_MA Computes the exact analytic price of a
+% Vanilla Call evaluated at t1 (expiring at t2) under the Minimal Additive model.
 %
-% Inputs:
-%   strike - The effective strike evaluated at t1 (can be a vector)
-%   alpha      - Left tail decay parameter
-%   beta       - Right tail decay parameter
-%   scale_factor     - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
-%   df   - Discount factor from t1 to t2
-%   diagnostic - (Optional) Boolean flag for debug prints. Default is false.
-%
-% Output:
-%   call_price_t1 - The discounted analytic price of the Call in t1
+% INPUTS:
+%   strike       - The effective strike evaluated at t1 (can be a vector)
+%   params       - [alpha, beta] left/right tail decay parameters
+%   scale_factor - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
+%   df           - Discount factor from t1 to t2
+%   diagnostic   - (Optional) Boolean flag for debug prints. Default is false.
+% OUTPUT:
+%   call_price_t1 - The discounted analytic price of the Call at t1
 
-    % =========================================================================
-    % DEFAULT ARGUMENT HANDLING
-    % =========================================================================
     if nargin < 5 || isempty(diagnostic)
         diagnostic = false;
     end

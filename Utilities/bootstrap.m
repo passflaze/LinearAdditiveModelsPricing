@@ -20,18 +20,16 @@ function [discount_factor, forward, R2] = bootstrap(P, C, K)
 %   (price > 0.1) is applied; the bid-ask spread filter of the paper
 %   is not, as bid/ask data are not available.
 %
-%   Inputs
-%     P : put mid-prices  (vector)
-%     C : call mid-prices (vector, same length as P)
-%     K : strikes         (vector, same length as P)
+% INPUTS:
+%   P : put mid-prices  (vector)
+%   C : call mid-prices (vector, same length as P)
+%   K : strikes         (vector, same length as P)
 %
-%   Outputs
-%     discount_factor : scalar D(t,T)
-%     forward         : scalar F(t,T)
-%     R2              : coefficient of determination of the OLS fit, a
-%                       goodness-of-fit diagnostic: values close to 1 mean
-%                       put-call parity holds tightly across strikes, lower
-%                       values flag noisy / poorly identified maturities.
+% OUTPUTS:
+%   discount_factor : scalar D(t,T)
+%   forward         : scalar F(t,T)
+%   R2              : OLS goodness-of-fit; values close to 1 mean put-call
+%                     parity holds tightly across strikes
 
 if length(P) ~= length(C) || length(P) ~= length(K)
     error("P, C and K must have the same length");

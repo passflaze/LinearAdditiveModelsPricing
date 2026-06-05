@@ -1,10 +1,19 @@
 function [cdf_exact, x_grid] = exact_ma_increment_cdf(pt_plus, pt_minus, ps_plus, ps_minus, delta_mu, doPlot)
 %EXACT_MA_INCREMENT_CDF Computes the analytical CDF of the MA increment.
-%   [CDF_EXACT, X_GRID] = EXACT_MA_INCREMENT_CDF(PT_PLUS, PT_MINUS, ...
-%   PS_PLUS, PS_MINUS, DELTA_MU) generates a spatial grid from -1000 to 1000
-%   and calculates the piecewise exact Cumulative Distribution Function 
-%   based on the finite-activity jump distribution.
-%   If DOPLOT is true, it plots the resulting CDF.
+%   Builds a spatial grid and evaluates the piecewise-exact CDF of the
+%   finite-activity MA increment, with a point mass at the drift delta_mu.
+%
+% INPUTS:
+%   pt_plus  - right-tail decay parameter at terminal time t
+%   pt_minus - left-tail decay parameter at terminal time t
+%   ps_plus  - right-tail decay parameter at initial time s
+%   ps_minus - left-tail decay parameter at initial time s
+%   delta_mu - deterministic drift (location of the point mass)
+%   doPlot   - (optional, default false) plot the resulting CDF
+%
+% OUTPUTS:
+%   cdf_exact - analytical CDF values on x_grid
+%   x_grid    - spatial grid the CDF is evaluated on
 
     % --- Optional Arguments Initialization ---
     if nargin < 6 || isempty(doPlot)

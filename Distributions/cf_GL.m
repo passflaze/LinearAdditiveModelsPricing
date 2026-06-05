@@ -18,23 +18,19 @@ function cf = cf_GL(u, params, scale_factor)
     alpha = params(1);
     beta  = params(2);
 
-    % Validate: shape parameters must be real
     if any(imag(alpha) ~= 0) || any(imag(beta) ~= 0)
         error('cf_GL:InvalidParameters', ...
             'Shape parameters alpha and beta must be real-valued.');
     end
 
-    % Centering drift (ensures zero mean)
     gamma_GL = psi(beta) - psi(alpha);
 
-    % Characteristic function via Gamma function ratio
     num = complex_gamma(alpha + 1i .* u * scale_factor) .* ...
           complex_gamma(beta  - 1i .* u * scale_factor);
     den = complex_gamma(alpha + beta) .* exp(betaln(alpha, beta));
 
     cf  = (num ./ den) .* exp(1i .* gamma_GL .* u * scale_factor);
 
-    % Numerical stability: replace NaN/Inf from tail collapse with 0
     nan_mask = (isnan(cf) | isinf(cf)) & ~isnan(u);
 
     if any(nan_mask(:))

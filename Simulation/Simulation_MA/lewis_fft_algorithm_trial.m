@@ -1,30 +1,23 @@
 function [cdf_clean, z_grid] = lewis_fft_algorithm_trial(M, dz, shift,clean)
-%INVERT_MA_CDF_FFT Computes the CDF of a Minimal Additive increment via FFT.
-%   [CDF_CLEAN, Z_GRID_FINE] = INVERT_MA_CDF_FFT(M, DZ, SHIFT, PT_PLUS, PT_MINUS, 
-%   PS_PLUS, PS_MINUS) uses the Fast Fourier Transform to invert the 
-%   characteristic function of a finite-activity MA process. It applies a 
-%   damping shift to ensure integrability and uses a post-processing 
-%   spline/exponential tail adjustment to guarantee a strict CDF profile.
+%LEWIS_FFT_ALGORITHM_TRIAL  Sandbox CDF inversion via FFT (Gaussian CF test).
+%   Inverts a characteristic function with the Lewis (2001) formula on a single
+%   damping shift and optionally cleans the tails. Used as a standalone trial
+%   harness; the CF is hard-wired to a standard Gaussian inside the routine.
 %
-%   Inputs:
-%       M         - Controls grid size, where N = 2^M (e.g., 12 to 15)
-%       dz        - Step size for the frequency grid (z-domain)
-%       shift     - Damping factor (alpha) to shift the integration contour
-%       pt_plus   - Right-tail decay parameter at terminal time t
-%       pt_minus  - Left-tail decay parameter at terminal time t
-%       ps_plus   - Right-tail decay parameter at initial time s
-%       ps_minus  - Left-tail decay parameter at initial time s
+%   INPUTS:
+%       M     - FFT grid exponent, N = 2^M (e.g. 12 to 15)
+%       dz    - step size of the frequency grid (z-domain)
+%       shift - damping factor (alpha) shifting the integration contour
+%       clean - (logical) if true, apply tail_adjustment post-processing
 %
-%   Outputs:
-%       cdf_clean   - The strictly monotonic, cleaned CDF vector
-%       z_grid_fine - The corresponding high-resolution spatial grid
+%   OUTPUTS:
+%       cdf_clean - CDF vector (strictly monotonic and refined if clean = true)
+%       z_grid    - corresponding spatial grid
 %
-%   See also: CF_FA_MA, TAIL_ADJUSTMENT
+%   See also: TAIL_ADJUSTMENT, LEWIS_FFT_DIGITAL
 
-    % =========================================================================
-    % STEP 2: FFT GRID SETUP 
-    % =========================================================================
-    N = 2^(M);  
+    % --- FFT grid setup ---
+    N = 2^(M);
     dx = (2*pi) / (N * dz);         
     
     zn = (dz * (N-1)) / 2;
@@ -35,13 +28,11 @@ function [cdf_clean, z_grid] = lewis_fft_algorithm_trial(M, dz, shift,clean)
     x1 = -xn;
     x_grid = x1 : dx : xn;
     
-    % =========================================================================
-    % STEP 3: CALCULATE CALL PRICES VIA FFT
-    % =========================================================================
+    % --- FFT inversion of the CF ---
     prefactor = dx * exp(-1i * x1 * (z_grid));
     preprefactor = -exp(+shift*z_grid) / (2*pi);
-    
-    % Evaluate the conditional CF at the shifted frequency grid
+
+    % Evaluate the CF at the shifted frequency grid.
     x_grid_shifted = x_grid + 1i*shift;
     cf_gauss = @(u) exp(-0.5.*(u.^2));
     fourier_function1 = cf_gauss(x_grid_shifted) ;
@@ -62,11 +53,9 @@ function [cdf_clean, z_grid] = lewis_fft_algorithm_trial(M, dz, shift,clean)
     ylabel('Probability');
     grid on;
     % -------------------------
-% =========================================================================
-    % STEP 3.5: TAIL CONVERGENCE DIAGNOSTIC CHECK
-    % =========================================================================
-    % Check if the raw CDF properly converges to 0 on the left and 1 on the right.
-    % We use abs() to account for potential negative ringing at the boundaries.
+    % --- Tail convergence diagnostic ---
+    % Check that the raw CDF converges to 0 on the left and 1 on the right;
+    % abs() guards against negative ringing at the boundaries.
     left_tail_error = abs(cdf_clean(1));
     right_tail_error = abs(1 - cdf_clean(end));
     
@@ -84,11 +73,9 @@ function [cdf_clean, z_grid] = lewis_fft_algorithm_trial(M, dz, shift,clean)
     end
     fprintf('--------------------------------------\n\n');
 
-    % =========================================================================
-    % STEP 4: POST-PROCESSING (TAIL EXTRAPOLATION & SPLINE INTERPOLATION)
-    % =========================================================================
-    % Clean numerical oscillations using the spatial grid (z_grid), NOT the 
-    % frequency grid (x_grid), refining the resolution by a factor of 10.
+    % --- Post-processing: tail extrapolation and refinement ---
+    % Clean numerical oscillations on the spatial grid (z_grid), refining the
+    % resolution by a factor of 10.
     if clean
         [cdf_clean, z_grid] = tail_adjustment(z_grid, cdf_clean, 10);
     

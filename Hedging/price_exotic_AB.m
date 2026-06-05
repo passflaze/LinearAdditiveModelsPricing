@@ -14,11 +14,12 @@ function V = price_exotic_AB(type, params_AB, scale_factor, mkt, params_hedge, m
 %   type         - (string) 'CoC' | 'PoP' | 'Chooser'
 %   params_AB    - (2x1)    [k; eta]
 %   scale_factor - (1x2)    [scale_t1, scale_t2]  (= sigma_t .* sqrt(yf))
-%   params_hedge          - (struct) .forward  F(t0,T2)
+%   mkt          - (struct) market data (discount_factor, yf, forward, ...)
+%   params_hedge - (struct) .forward  F(t0,T2)
 %                           .K1       compound strike (ignored by Chooser)
 %                           .K2       inner strike
 %                           .df       [B(t0,T1), B(t0,T2)]
-%   mc           - (struct) .N_sim .M .dz .N_grid .seed
+%   mc           - (struct) .N_sim .M .dz .seed
 %
 % OUTPUT:
 %   V            - (scalar) exotic fair value at t0 under the AB model.

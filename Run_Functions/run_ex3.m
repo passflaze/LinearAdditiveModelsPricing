@@ -1,10 +1,25 @@
 function LA_results = run_ex3(params, market, opts)
-%RUN_EX3 Computes Forward Start prices using Linear Additive Models 
-%        (GL, MA, AB) and compares Analytic vs Monte Carlo results.
+% RUN_EX3  Forward-start pricing under GL, MA, and AB Linear Additive models.
+%   Compares Analytic (Lewis-FFT), Monte Carlo, and Uniform Lewis prices.
+%   Can run standalone (calibrates internally) or accept pre-calibrated inputs.
+%
+% INPUTS:
+%   params - (struct) calibrated parameters from run_ex2:
+%              .AB [k;eta]  .MA [alpha;beta]  .GL [alpha;beta]
+%   market - (struct) market data from run_ex2 (forward, sigma_ATM, yf, ...)
+%   opts   - (struct, optional):
+%              .verbose - (logical, default false) print intermediate diagnostics
+%              .plot    - (logical, default true)  draw pricing figures
+%              .K2      - (scalar, default 1) proportional forward-start strike
+%              .mc      - (struct) Monte Carlo / FFT settings per model:
+%                         .Nsim_AB/MA/GL  number of simulations (0 = FFT only)
+%                         .M_AB/MA/GL     FFT grid exponent (N = 2^M)
+%                         .dz_AB/MA/GL    FFT grid step
+%
+% OUTPUT:
+%   LA_results - (struct) .PricingData  summary table (Analytic/MC/Uniform)
 
-    % =========================================================================
-    % 1. INITIALIZATION & MARKET SETUP
-    % =========================================================================
+    %% --- Initialization and market setup ---
     addpath("Utilities/");
     addpath("Distributions/");
     addpath("Calibration/");
@@ -15,13 +30,11 @@ function LA_results = run_ex3(params, market, opts)
     addpath("Simulation/Simulation_MA/");
     addpath(genpath("Pricing/"));
     
-    % --- Options Initialization ---
     if nargin < 3 || isempty(opts)
         opts = struct();
     end
     if ~isfield(opts, 'verbose'), opts.verbose = false; end
     if ~isfield(opts, 'plot'),    opts.plot = true;     end
-    % ------------------------------
 
     % Standalone mode: if no calibrated inputs are passed, calibrate first
     if nargin < 2
@@ -45,9 +58,7 @@ function LA_results = run_ex3(params, market, opts)
     
     fprintf('  -> Market data and ATM volatility loaded for %d maturities.\n\n', nT);
 
-    % =========================================================================
-    % 2. GLOBAL PRICING PARAMETERS
-    % =========================================================================
+    %% --- Pricing parameters ---
     iT1 = 2;  
     iT2 = 4;
     T1  = yf(iT1);  
@@ -57,9 +68,7 @@ function LA_results = run_ex3(params, market, opts)
     
     fwd_factor = discount_factor(iT1) / discount_factor(iT2);
 
-    % =========================================================================
-    % 3. FFT VALIDATION (GAUSSIAN CDF SANITY CHECK)
-    % =========================================================================
+    %% --- FFT validation (optional) ---
     if opts.verbose
         fprintf('--- 0. FFT VALIDATION ---\n');
         M_gauss     = 14;
@@ -79,11 +88,9 @@ function LA_results = run_ex3(params, market, opts)
         fprintf('  -> FFT inversion validation against Gaussian CDF complete.\n\n');
     end
 
-    % =========================================================================
-    % 4. MODEL PRICING EXECUTION
-    % =========================================================================
+    %% --- Model pricing ---
 
-    % --- 4.1 GENERALIZED LOGISTIC (GL) MODEL ---
+    %% GL model
     fprintf('--- 1. GENERALIZED LOGISTIC (GL) MODEL ---\n');
     params_GL = params.GL;
     I0_GL_val = I0_GL(params_GL);
@@ -117,7 +124,7 @@ function LA_results = run_ex3(params, market, opts)
     fprintf('  [Results GL] Analytic: %.6f | MC: %.6f | Uniform: %.6f\n\n', price_an_GL, price_mc_GL, price_uniform_GL);
     end
 
-    % --- 4.2 MINIMAL ADDITIVE (MA) MODEL ---
+    %% MA model
     fprintf('--- 2. MINIMAL ADDITIVE (MA) MODEL ---\n');
     params_MA = params.MA;
     alpha_MA  = params_MA(1);
@@ -183,7 +190,7 @@ function LA_results = run_ex3(params, market, opts)
     compare_moments_MA(1e7, M_MA, dz_MA, sigmat_MA, params_MA, opts.plot);
     fprintf('\n');
 
-    % --- 4.3 ADDITIVE BACHELIER (AB) MODEL ---
+    %% AB model
     fprintf('--- 3. ADDITIVE BACHELIER (AB) MODEL ---\n');
     params_AB = params.AB;
     I0_AB_val = I0_AB(0, params_AB);
@@ -216,9 +223,7 @@ function LA_results = run_ex3(params, market, opts)
         fprintf('  [Results AB] Analytic: %.6f | MC: %.6f | Uniform: %.6f\n\n', price_an_AB, price_mc_AB, price_uniform_AB);
     end
 
-   % =========================================================================
-    % 5. RESULTS AGGREGATION & REPORTING
-    % =========================================================================
+    %% --- Results aggregation ---
     models_names = {'GL'; 'MA'; 'AB'};
     
     if K2 == 1
@@ -226,7 +231,6 @@ function LA_results = run_ex3(params, market, opts)
         prices_mc = [price_mc_GL; price_mc_MA; price_mc_AB];
         prices_un = [price_uniform_GL; NaN; price_uniform_AB]; % MA does not use uniform lewis_FFT_call
         
-        % Calculate the difference in basis points
         diff_bps = (prices_mc - prices_an) * 10000;
         
         SummaryTable = table(models_names, prices_an, prices_mc, diff_bps, prices_un, ...
@@ -258,6 +262,5 @@ function LA_results = run_ex3(params, market, opts)
     fprintf('                 SIMULATION COMPLETED SUCCESSFULLY.                      \n');
     fprintf('=========================================================================\n');
     
-    % Output Struct
     LA_results.PricingData = SummaryTable;
 end

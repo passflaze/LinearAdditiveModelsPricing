@@ -1,16 +1,17 @@
 function comparison_function_increments_MA(params, scale_factor, df, M, dz,K2,fwd)
-% TEST_CALL_PRICES Compares the analytic and FFT call prices to verify consistency.
+% COMPARISON_FUNCTION_INCREMENTS_MA Compares the analytic and FFT call prices
+% for the MA increment (t1 -> t2) to verify their consistency.
 %
-% Inputs:
-%   strikes    - Vector of effective strikes evaluated at t1
-%   alpha      - Left tail decay parameter
-%   beta       - Right tail decay parameter
-%   scale_factor     - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
-%   df_t1_t2   - Discount factor from t1 to t2
-%   M          - Controls FFT grid size (N = 2^M)
-%   dz         - Step size for the frequency grid
-%   shift_pos  - Positive damping factor
-%   shift_neg  - Negative damping factor
+% INPUTS:
+%   params       - [alpha, beta] left/right tail decay parameters
+%   scale_factor - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
+%   df           - Vector of discount factors [B(t0,t1), B(t0,t2)]
+%   M            - Controls FFT grid size (N = 2^M)
+%   dz           - Step size for the frequency grid
+%   K2           - Strike of the inner call (paid at t2)
+%   fwd          - Forward price F(t1, T2)
+% OUTPUT:
+%   none (prints a comparison table of analytic vs FFT prices)
 
     % 1. Derived Tail Parameters
     alpha = params(1); beta = params(2);

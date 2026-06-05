@@ -1,22 +1,27 @@
 function cdf = cdf_AB_increments(eta, k, T1, T2, sigma_T1, sigma_T2, x, fwd_factor)
-    % Conditional CDF F_{T2|T1}(x) of the AB log-price increment between
-    % reset dates T1 and T2, via Lewis-FFT.
-    %
-    % Two-shift reconstruction (Baviera-Manzoni 2026, Sec. 5.3): computes the
-    % CDF twice, once with a shift on the negative side of the analyticity
-    % strip (accurate on the LEFT tail) and once on the positive side
-    % (accurate on the RIGHT tail), then glues the two at the median (x = 0).
-    %
-    % sigma_T1, sigma_T2 = entries of sigma_t (= sigma_ATM / I_0) from the
-    % calibration (calibrate_surface). Example:
-    %   cdf = cdf_AB_increments(eta, k, T1, T2, sigma_t(iT1), sigma_t(iT2), x);
-    %
-    % x: column vector of log-price increment points where to evaluate the CDF.
-    %
-    % fwd_factor : (optional, default 1) Lemma 2 rescaling (Forward.pdf).
-    %   Under Lemma 2 strict, f_{T1,T2} = fwd_factor * f_{T1,T1} with
-    %   fwd_factor = B(0,T1)/B(0,T2). The increment W = f_{T2,T2} - f_{T1,T2}
-    %   of the AB-T2 process has CF phi_T2(u) / phi_T1(fwd_factor * u).
+% CDF_AB_INCREMENTS  Conditional CDF F_{T2|T1}(x) of the AB log-price increment
+%   between reset dates T1 and T2, via Lewis-FFT.
+%
+%   Two-shift reconstruction (Baviera-Manzoni 2026, Sec. 5.3): computes the CDF
+%   twice — once with a contour shift on the negative side of the analyticity
+%   strip (accurate on the LEFT tail) and once on the positive side (accurate on
+%   the RIGHT tail) — then blends the two with a smooth tanh weight centred at 0.
+%
+%   Under Lemma 2, f_{T1,T2} = fwd_factor * f_{T1,T1}, so the increment
+%   W = f_{T2,T2} - f_{T1,T2} has CF phi_T2(u) / phi_T1(fwd_factor * u).
+%
+% INPUTS:
+%   eta        - (scalar) drift parameter of the AB model
+%   k          - (scalar) mean-reversion / tempering parameter
+%   T1         - (scalar) reset (earlier) date in years
+%   T2         - (scalar) maturity (later) date in years
+%   sigma_T1   - (scalar) sigma_t at T1 (= sigma_ATM(T1) / I0)
+%   sigma_T2   - (scalar) sigma_t at T2 (= sigma_ATM(T2) / I0)
+%   x          - (column vector) evaluation points for the CDF
+%   fwd_factor - (scalar, optional, default 1) Lemma 2 rescaling B(0,T1)/B(0,T2)
+%
+% OUTPUT:
+%   cdf        - (column vector) CDF values at x, same size as x
 
     if nargin < 8 || isempty(fwd_factor)
         fwd_factor = 1;

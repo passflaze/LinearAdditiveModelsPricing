@@ -14,7 +14,12 @@ function g = greeks_exotic_AB(type, params_AB, scale_factor, market, params_hedg
 %                      reproduces a relative sigma_ATM shift on BOTH legs.
 %
 % INPUTS:
-%   type, params_AB, scale_factor, mkt, mc  - see price_exotic_AB
+%   type         - (string) 'CoC' | 'PoP' | 'Chooser'
+%   params_AB    - (2x1)    [k; eta]
+%   scale_factor - (1x2)    [scale_t1, scale_t2]
+%   market       - (struct) market data (sigma_ATM, yf, discount_factor, forward, ...)
+%   params_hedge - (struct) .forward .K1 .K2 .df (see price_exotic_AB)
+%   mc           - (struct) .N_sim .M .dz .seed
 %   bumps        - (struct) .dF   absolute forward bump (e.g. 0.5 $)
 %                           .dSig relative vol bump     (e.g. 1e-2)
 %
@@ -29,7 +34,7 @@ function g = greeks_exotic_AB(type, params_AB, scale_factor, market, params_hedg
 %   vega is wanted; keep the SAME convention in greeks_vanilla_AB so the
 %   hedge ratios are consistent (the units cancel in build_hedge_AB).
 
-    if nargin < 6 || isempty(bumps)
+    if nargin < 7 || isempty(bumps)
         bumps = struct('dF', 1e-4, 'dSig', 1e-4);
     end
 

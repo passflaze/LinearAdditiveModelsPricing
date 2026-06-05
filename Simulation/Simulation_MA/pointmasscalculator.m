@@ -21,9 +21,9 @@ function lambda = pointmasscalculator(pt_plus, pt_minus, ps_plus, ps_minus)
 %   References:
 %       Based on the finite-activity increment distribution framework (Baviera, 2026).
 
-    % 1. Calculate the reciprocal of the probability atom size (1/c)
+    % Reciprocal of the probability atom size (1/c).
     inverse_atom = (ps_plus .* ps_minus) ./ (pt_plus .* pt_minus);
 
-    % 3. Compute Lambda 
+    % lambda = -log(c) = log(1/c).
     lambda = log(inverse_atom);
 end

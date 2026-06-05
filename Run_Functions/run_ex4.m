@@ -1,10 +1,24 @@
 function LA_results = run_ex4(params, market, opts)
-%RUN_EX4 Computes prices for Call-on-Call, Put-on-Put, and Chooser options 
-%        using Linear Additive Models (GL, MA, AB) and performs sanity checks.
+% RUN_EX4  Exotic pricing (CoC, PoP, Chooser) under GL, MA, and AB models.
+%   Performs MC pricing, sanity checks (K1=0 collapse, ATM Chooser identity),
+%   and optional CDF smart-extrapolation test.
+%
+% INPUTS:
+%   params - (struct) calibrated parameters from run_ex2:
+%              .AB [k;eta]  .MA [alpha;beta]  .GL [alpha;beta]
+%   market - (struct) market data from run_ex2
+%   opts   - (struct, optional):
+%              .verbose      - (logical) print extra diagnostics
+%              .plot         - (logical) draw pricing figures
+%              .K1           - (scalar) compound strike (1 = ATM)
+%              .K2           - (scalar or 'ATM') inner strike
+%              .smart_extrap - (logical) run CDF truncation test
+%              .mc           - (struct) same layout as run_ex3
+%
+% OUTPUT:
+%   LA_results - (struct) .Pricing .SanityChecks .SmartExtrapolation
 
-    % =========================================================================
-    % 1. INITIALIZATION & MARKET SETUP
-    % =========================================================================
+    %% --- Initialization ---
     addpath("Utilities/");
     addpath("Distributions/");
     addpath(genpath('Pricing/'));
@@ -36,9 +50,7 @@ function LA_results = run_ex4(params, market, opts)
     
     fprintf('  -> Market data and ATM volatility loaded for %d maturities.\n\n', nT);
     
-    % =========================================================================
-    % 2. GLOBAL PRICING PARAMETERS
-    % =========================================================================
+    %% --- Pricing parameters ---
     iT1 = 2;  
     iT2 = 4;
     T1  = yf(iT1);  
@@ -58,15 +70,12 @@ function LA_results = run_ex4(params, market, opts)
     df      = [discount_factor(iT1), discount_factor(iT2)];
     B_0_t2  = discount_factor(iT2);
     
-    % Scaling and logic flags
     fwd_factor = discount_factor(iT1) / discount_factor(iT2);
     chooser_sanity_enabled = (K2 == F_t0_t2);
 
-    % =========================================================================
-    % 3. MODEL PRICING EXECUTION
-    % =========================================================================
-    
-    % --- 3.1 GENERALIZED LAPLACE (GL) MODEL ---
+    %% --- Model pricing ---
+
+    %% GL model
     fprintf('--- 1. GENERALIZED LAPLACE (GL) MODEL ---\n');
     params_GL        = params.GL; 
     I0_opt_GL        = I0_GL(params_GL);
@@ -103,7 +112,7 @@ function LA_results = run_ex4(params, market, opts)
         price_Ch_GL_analytic = NaN;
     end
 
-    % --- 3.2 MINIMAL ADDITIVE (MA) MODEL ---
+    %% MA model
     fprintf('--- 2. MINIMAL ADDITIVE (MA) MODEL ---\n');
     params_MA        = params.MA; 
     I0_opt_MA        = I0_MA(params_MA);
@@ -155,7 +164,7 @@ function LA_results = run_ex4(params, market, opts)
     end
     fprintf('\n');
 
-    % --- 3.3 ADDITIVE BACHELIER (AB) MODEL ---
+    %% AB model
     fprintf('--- 3. ADDITIVE BACHELIER (AB) MODEL ---\n');
     params_AB        = params.AB; 
     I0_opt_AB        = I0_AB(0, params_AB);
@@ -194,9 +203,7 @@ function LA_results = run_ex4(params, market, opts)
         price_Ch_AB_analytic = NaN;
     end
 
-    % =========================================================================
-    % 4. RESULTS AGGREGATION & REPORTING
-    % =========================================================================
+    %% --- Results ---
     models = {'GL'; 'MA'; 'AB'};
     
     prices_CoC_MC       = [price_GL; price_CoC_MA_MC; price_AB];
@@ -232,9 +239,7 @@ function LA_results = run_ex4(params, market, opts)
     disp('=================================================================================================================================');
     disp(T);
 
-    % =========================================================================
-    % 5. SANITY CHECKS & DIAGNOSTICS
-    % =========================================================================
+    %% --- Sanity checks ---
     err_CoC_GL_bps = (price_ATM_GL - price_CoC_K1zero_GL) * 10000;
     err_CoC_AB_bps = (price_ATM_AB - price_CoC_K1zero_AB) * 10000;
     
@@ -273,9 +278,7 @@ function LA_results = run_ex4(params, market, opts)
     disp('=============================================================================================================');
     disp(S);
 
-    % =========================================================================
-    % 6. SMART EXTRAPOLATION TEST
-    % =========================================================================
+    %% --- Smart extrapolation test ---
     R_ext = [];
     if isfield(opts, 'smart_extrap') && opts.smart_extrap  
         c_list    = [1, 1.5, 2, 3];   
@@ -297,9 +300,7 @@ function LA_results = run_ex4(params, market, opts)
         disp(R_ext);
     end
 
-    % =========================================================================
-    % 7. PLOTTING
-    % =========================================================================
+    %% --- Plotting ---
     if isfield(opts, 'plot') && opts.plot
         
         % Shared plotting configuration
@@ -358,9 +359,7 @@ function LA_results = run_ex4(params, market, opts)
         hold off;
     end
 
-    % =========================================================================
-    % 8. OUTPUT COMPILATION
-    % =========================================================================
+    %% --- Output ---
     LA_results.Pricing            = T;
     LA_results.SanityChecks       = S;
     LA_results.SmartExtrapolation = R_ext;

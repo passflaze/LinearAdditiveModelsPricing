@@ -28,38 +28,25 @@ function vega = compute_vega_AB(type, mkt, params_hedge, mc, bump, maturity_inde
         K = params_hedge.Kc;  % default strike (back-compat)
     end
 
-    % =========================================================================
-    % STEP 1: APPLY BUMP TO VOLATILITY SURFACE (PARALLEL SHIFT)
-    % =========================================================================
+    % --- Parallel shift of the ATM vol surface ---
     sigma_ATM_bumped_up   = mkt.sigma_ATM + bump;
     sigma_ATM_bumped_down = mkt.sigma_ATM - bump;
-    
-    % Setup optimization options for fmincon (suppress output to keep console clean)
+
     options_AB = optimoptions('fmincon', 'Display', 'none', 'Algorithm', 'sqp');
-    
-    % Initial guess and bounds for AB calibration
     x0_AB = [1.0, 0.2];
     lb_AB = [1e-3, -1.5];
     ub_AB = [5.0,   1.5];
-    
-    % =========================================================================
-    % STEP 2: RECALIBRATION
-    % =========================================================================
-    % 2A. Calibrate to UP bumped surface
+
+    % --- Recalibration to the bumped surfaces ---
     obj_fun_AB_up = @(x) objective_function_AB(x, mkt.discount_factor, mkt.yf, ...
                          sigma_ATM_bumped_up, mkt.moneyness_modified, mkt.c_mkt_calibration);
-                   
     [params_AB_vega_up, ~, ~] = fmincon(obj_fun_AB_up, x0_AB, [], [], [], [], lb_AB, ub_AB, [], options_AB);
-    
-    % 2B. Calibrate to DOWN bumped surface
+
     obj_fun_AB_down = @(x) objective_function_AB(x, mkt.discount_factor, mkt.yf, ...
                            sigma_ATM_bumped_down, mkt.moneyness_modified, mkt.c_mkt_calibration);
-                   
     [params_AB_vega_down, ~, ~] = fmincon(obj_fun_AB_down, x0_AB, [], [], [], [], lb_AB, ub_AB, [], options_AB);
-    
-    % =========================================================================
-    % STEP 3: REPRICING
-    % =========================================================================
+
+    % --- Repricing at recalibrated parameters ---
     % Recompute scale factors using the new parameters and bumped ATM vols.
     scale_factor_up = [ (sigma_ATM_bumped_up(2) / I0_AB(0, params_AB_vega_up)) * sqrt(mkt.yf(2)), ...
                         (sigma_ATM_bumped_up(4) / I0_AB(0, params_AB_vega_up)) * sqrt(mkt.yf(4)) ];
@@ -68,7 +55,6 @@ function vega = compute_vega_AB(type, mkt, params_hedge, mc, bump, maturity_inde
                           (sigma_ATM_bumped_down(4) / I0_AB(0, params_AB_vega_down)) * sqrt(mkt.yf(4)) ];
     
     if strcmp(type, 'vanilla')
-        % VANILLA PRICING
         % Strike K is passed explicitly (fixes the old Kc-for-puts bug); the
         % forward is read at the vanilla's own maturity leg, consistent with
         % greeks_vanilla_AB (which uses mkt.forward(maturity_index)).
@@ -86,15 +72,10 @@ function vega = compute_vega_AB(type, mkt, params_hedge, mc, bump, maturity_inde
         price_up   = B * lewis_FFT_call(@cf_AB, mc.M, mc.dz, params_AB_vega_up,   sf_up_vanilla,   K - F, 1, 'AB');
         price_down = B * lewis_FFT_call(@cf_AB, mc.M, mc.dz, params_AB_vega_down, sf_down_vanilla, K - F, 1, 'AB');
     else
-        % EXOTIC PRICING
         price_up   = price_exotic_AB(type, params_AB_vega_up, scale_factor_up, mkt, params_hedge, mc);
         price_down = price_exotic_AB(type, params_AB_vega_down, scale_factor_down, mkt, params_hedge, mc);
     end
-    
-    % =========================================================================
-    % STEP 4: CENTRAL DIFFERENCES AND VEGA COMPUTATION
-    % =========================================================================
-    % Calculate Vega using the central difference quotient. 
-    % If bump is a vector, use bump(1) to ensure the denominator is a scalar.
+
+    % --- Central difference; use bump(1) when bump is a vector ---
     vega = (price_up - price_down) / (2 * bump(1));
 end

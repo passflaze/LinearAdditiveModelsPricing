@@ -47,9 +47,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         fprintf(' EVALUATING TIME STEP %d: %s\n', k, datestr(current_date));
         fprintf('======================================================\n');
 
-        % -----------------------------------------------------------------
-        % STEP 1: MARKET RECALIBRATION (Silenced)
-        % -----------------------------------------------------------------
+        % --- Market recalibration ---
         opts_current = opts_array(k);
         [~, params, market] = evalc('run_ex2(opts_current)');
         iT1 = prc_params.iT1;
@@ -64,9 +62,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         % Forward F(t0,T2) used by the exotic pricer / vega recalibration.
         prc_params.params_hedge.forward = market.forward(iT2);
 
-        % -----------------------------------------------------------------
-        % STEP 2: REPRICE EXOTIC PORTFOLIO (Silenced)
-        % -----------------------------------------------------------------
+        % --- Reprice exotic portfolio ---
         nE = numel(prc_params.exotics);
         G_exotic = repmat(struct('price',0,'delta',0,'gamma',0,'vega',0), nE, 1);
 
@@ -84,9 +80,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         end
         new_V_exotic = port_exotic.price;
 
-        % -----------------------------------------------------------------
-        % STEP 3: REPRICE HEDGING BASKET (Silenced)
-        % -----------------------------------------------------------------
+        % --- Reprice hedging basket ---
         instr   = price_hedge_basket(basket, params.AB, scale_factor_vanilla, market, ...
                                      prc_params.params_hedge, prc_params.mc, prc_params.bumps);
         prices  = [instr.price]';
@@ -97,9 +91,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         % Mark-to-market value of the existing hedge basket.
         current_V_old_hedge = w_hedge' * prices;
 
-        % -----------------------------------------------------------------
-        % STEP 4: GROSS P&L OF THE HEDGED BOOK
-        % -----------------------------------------------------------------
+        % --- Gross P&L of the hedged book ---
         fprintf('  Exotic Portfolio MTM : %+.4e\n', new_V_exotic);
         fprintf('  Hedge Portfolio MTM  : %+.4e\n', current_V_old_hedge);
 
@@ -112,9 +104,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
         fprintf('  Unhedged P&L (exotic): %+.4e\n', dPnL_exotic);
         fprintf('  Gross P&L over period: %+.4e\n', res.PnL(k));
 
-        % -----------------------------------------------------------------
-        % STEP 5: DYNAMIC HEDGING CHECK (REBALANCING)
-        % -----------------------------------------------------------------
+        % --- Dynamic hedging check (rebalancing) ---
         book = struct( ...
             'delta', port_exotic.delta + w_hedge' * i_delta, ...
             'gamma', port_exotic.gamma + w_hedge' * i_gamma, ...
@@ -158,9 +148,7 @@ function res = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, gre
             w_hedge = w_new;
         end
 
-        % -----------------------------------------------------------------
-        % STEP 6: STORE RESULTS AND UPDATE STATES
-        % -----------------------------------------------------------------
+        % --- Store results and advance state ---
         res.Costs(k)   = transaction_cost;
         res.Net_PnL(k) = res.PnL(k) - transaction_cost;
 

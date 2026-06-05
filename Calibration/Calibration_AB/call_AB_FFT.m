@@ -1,7 +1,14 @@
 function call_price_modelAB = call_AB_FFT(x, k, eta, I_0)
 % CALL_AB_FFT  Normalized AB call G(chi) via single-shift Lewis-FFT.
-%   x = moneyness chi at which to interpolate; params [k; eta]; I_0 optional
-%   (pass it in during calibration to skip one I0_AB FFT per evaluation).
+%
+% INPUTS:
+%   x      : moneyness chi at which to interpolate the normalized call
+%   k      : AB IG parameter (k > 0)
+%   eta    : AB skew parameter
+%   I_0    : (optional) normalization constant I0_AB(0,[k;eta]); pass it in
+%            during calibration to skip one I0_AB FFT per evaluation
+% OUTPUT:
+%   call_price_modelAB : normalized call G(chi), same size as x
 
 M=14;
 dz=0.005;

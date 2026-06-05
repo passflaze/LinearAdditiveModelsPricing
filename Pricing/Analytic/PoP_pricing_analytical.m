@@ -10,21 +10,17 @@ function price = PoP_pricing_analytical(params, scale_factor, F_t0_T2, K1, K2, d
 %   K2                - Strike of the Underlying Put
 %   df                - Vector of discount factors [df_t1, df_t2]
 %   diagnostic        - (Optional) Boolean flag to enable debug prints. Default is false.
+% OUTPUT:
+%   price             - The discounted semi-analytic price of the Put-on-Put
 
-    % =========================================================================
-    % DEFAULT ARGUMENT HANDLING
-    % =========================================================================
     if nargin < 7 || isempty(diagnostic)
         diagnostic = false;
     end
     alpha = params(1);
     beta = params(2);
-    
-    if diagnostic, tic; end % Start execution timer
-    
-    % =========================================================================
-    % DIAGNOSTICS: INPUT VALIDATION
-    % =========================================================================
+
+    if diagnostic, tic; end
+
     if diagnostic
         fprintf('\n==================================================\n');
         fprintf('  RUNNING DIAGNOSTICS FOR PoP_pricing_analytical\n');

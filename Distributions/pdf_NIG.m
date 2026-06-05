@@ -1,31 +1,22 @@
 function f = pdf_NIG(x, alpha, beta, mu, delta)
-% NIGPDF Calculates the Probability Density Function (PDF) of the Normal Inverse Gaussian.
+% PDF_NIG  Probability density function of the Normal Inverse Gaussian distribution.
 %
-% INPUT:
-%   x     : Points at which to evaluate the PDF (scalar or vector)
-%   alpha : Shape parameter (steepness/tail heaviness, alpha > |beta|)
-%   beta  : Asymmetry parameter (skewness)
-%   mu    : Location parameter (drift)
-%   delta : Scale parameter (dispersion, delta > 0)
-%
+% INPUTS:
+%   x     - (vector) evaluation points
+%   alpha - (scalar) shape / tail-heaviness parameter (alpha > |beta|)
+%   beta  - (scalar) asymmetry parameter (skewness)
+%   mu    - (scalar) location parameter
+%   delta - (scalar) scale parameter (> 0)
 % OUTPUT:
-%   f     : PDF value evaluated at x
+%   f     - (vector) PDF values at x
 
-    % 1. Calculate the recurring root term
-    root_term = sqrt(delta^2 + (x - mu).^2);
-    
-    % 2. Constant term
-    constant = (alpha * delta) / pi;
-    
-    % 3. Exponential term
+    root_term   = sqrt(delta^2 + (x - mu).^2);
+    constant    = (alpha * delta) / pi;
     exponential = exp(delta * sqrt(alpha^2 - beta^2) + beta * (x - mu));
-    
-    % 4. Modified Bessel function of the second kind term
     bessel_term = besselk(1, alpha * root_term) ./ root_term;
-    
-    % 5. Assemble the final PDF
+
     f = constant * exponential .* bessel_term;
-    
-    % Protection against extreme numerical instabilities (0 * Inf)
-    f(isnan(f)) = 0; 
+
+    % Guard against 0 * Inf at extreme tails
+    f(isnan(f)) = 0;
 end

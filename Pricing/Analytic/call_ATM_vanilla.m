@@ -35,13 +35,8 @@ function [price] = call_ATM_vanilla(params, scale_factor_T, discount_factor_T, m
 %   discount_factor_T   - (scalar) B(0,T) at the call maturity.
 %   model               - (string) 'GL' or 'AB'.
 %
-% OUTPUTS:
+% OUTPUT:
 %   price    - (scalar) ATM-forward vanilla call price at t0.
-%   details  - (struct) audit info:
-%                .normalized_ATM_price   E[z^+], pure number
-%                .scale_factor_T         echo of input
-%                .discount_factor_T      echo of input
-%                .model                  echo of input
 
 
     % --- Normalized ATM price  E[z^+] = I_0 / sqrt(2*pi) -----------------

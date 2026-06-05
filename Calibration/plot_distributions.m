@@ -6,21 +6,15 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
 %   eta_AB, kappa_AB   : AB skew and IG parameters
 %   alpha_MA, beta_MA  : MA left/right rates
 %   alpha_GL, beta_GL  : GL left/right shape parameters
-    % =========================================================================
-    % 1. Global Parameters and Evaluation Grid
-    % =========================================================================
-    % Unified spatial grid for evaluating the probability density functions
+% OUTPUT:
+%   none (draws a linear-scale and a semi-log-scale density figure)
+
     x_grid = linspace(-30, 30, 500);
-    % =========================================================================
-    % 2. Asymmetric Laplace Distribution (MA Model)
-    % =========================================================================
-    % Evaluate MA density using dedicated function from Distributions folder
-    % Note: sigmat=1 (no time-scaling in this visualization context)
+
+    % MA density (sigmat = 1, no time-scaling).
     y_MA = pdf_MA([alpha_MA; beta_MA], 1, x_grid);
-    % =========================================================================
-    % 3. Additive Bachelier Distribution (AB via NIG Model)
-    % =========================================================================
-    % Structural parameter mapping for the Normal Inverse Gaussian
+
+    % AB density via the NIG parametrization (x, alpha, beta, mu, delta).
     mu        = eta_AB;
     gamma_AB  = -eta_AB;
     lam_IG1   = 1 / kappa_AB;
@@ -28,47 +22,34 @@ function plot_distributions(eta_AB, kappa_AB, alpha_MA, beta_MA, alpha_GL, beta_
     beta_nig  = gamma_AB;
     delta_nig = sqrt(lam_IG1);
     mu_nig    = mu;
-    % Evaluate AB density using custom NIG PDF function from Distributions folder
-    % Note: parameter order is (x, alpha, beta, mu, delta) vs. MATLAB's nigpdf
     y_AB = pdf_NIG(x_grid, alpha_nig, beta_nig, mu_nig, delta_nig);
-    % =========================================================================
-    % 4. Generalized Logistic Distribution (GL)
-    % =========================================================================
-    % Evaluate GL density using dedicated function from Distributions folder
+
+    % GL density.
     y_GL = pdf_GL([alpha_GL; beta_GL], x_grid);
-    % =========================================================================
-    % 5. Benchmark: Standard Normal Distribution
-    % =========================================================================
+
+    % Standard normal benchmark.
     mu_norm = 0;
     sigma_norm = 1;
-    % Explicit formula to avoid Statistics Toolbox dependencies
     y_norm = (1 / (sigma_norm * sqrt(2*pi))) .* exp(-0.5 .* ((x_grid - mu_norm) ./ sigma_norm).^2);
-    % =========================================================================
-    % PLOT 1: Linear Scale Comparison (vs. Standard Normal)
-    % =========================================================================
+
+    % --- Plot 1: linear scale ---
     figure('Color', 'w', 'Position', [100, 100, 900, 600]);
     hold on; grid on; box on;
-    
+
     plot(x_grid, y_MA, 'LineWidth', 2.5, 'Color', [0 0.4470 0.7410], 'DisplayName', 'Asymmetric Laplace (MA)');
     plot(x_grid, y_AB, 'LineWidth', 2.5, 'Color', [0.8500 0.3250 0.0980], 'DisplayName', 'AB Distribution');
     plot(x_grid, y_GL, 'LineWidth', 2.5, 'Color', [0.4940 0.1840 0.5560], 'DisplayName', 'Generalized Logistic (GL)');
-    
-    % Adding the Normal curve as a dashed benchmark
     plot(x_grid, y_norm, '--k', 'LineWidth', 2, 'DisplayName', 'Standard Normal Benchmark');
-    
-    % Formatting and aesthetics
+
     title('Probability Density Functions (Linear Scale)', 'FontSize', 16, 'FontWeight', 'bold');
     xlabel('$\zeta$', 'Interpreter', 'latex', 'FontSize', 14);
     ylabel('Density', 'FontSize', 14);
     legend('Location', 'northeast', 'FontSize', 12, 'Interpreter', 'latex');
-    
-    % Axis limits
     xlim([min(x_grid), max(x_grid)]);
     ylim([0, max([y_MA, y_AB, y_GL, y_norm]) * 1.1]);
     hold off;
-    % =========================================================================
-    % PLOT 2: Global Semi-Logarithmic Scale
-    % =========================================================================
+
+    % --- Plot 2: semi-log scale ---
     figure('Color', 'w', 'Position', [150, 120, 900, 600]);
     hold on; grid on; box on;
     

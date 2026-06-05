@@ -9,31 +9,28 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params, doPlot)
 %   params         : [alpha_MA, beta_MA]
 %   doPlot         : (optional, default false) plot the simulated distribution
 %                    and the absolute moment errors
+%
+% OUTPUT:
+%   none (prints the moment comparison table and, if doPlot, draws figures)
 
     if nargin < 6 || isempty(doPlot)
         doPlot = false;
     end
 
-    % =========================================================================
-    % STEP 1: INTERNAL PARAMETER COMPUTATION
-    % =========================================================================
+    % --- Tail decay parameters and drift from (alpha, beta) and scale_factor ---
     alpha_MA = params(1);
     beta_MA = params(2);
     gamma_MA = (1/alpha_MA) - (1/beta_MA);
-    
-    % Tail decay parameters using scale_factor
+
     ps_plus  = beta_MA  / scale_factor(1);
     ps_minus = alpha_MA / scale_factor(1);
-    
+
     pt_plus  = beta_MA  / scale_factor(2);
     pt_minus = alpha_MA / scale_factor(2);
-    
-    % Drift vector calculation (from t1 to t2)
+
     drift_t1_t2 = gamma_MA * (scale_factor(2) - scale_factor(1));
 
-    % =========================================================================
-    % STEP 2: MONTE CARLO SIMULATION & EMPIRICAL MOMENTS
-    % =========================================================================
+    % --- Monte Carlo simulation and empirical moments ---
     fprintf('\n========================================================\n');
     fprintf('  MA MOMENTS COMPARISON: MONTE CARLO vs ANALYTICAL\n');
     fprintf('========================================================\n');
@@ -47,24 +44,20 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params, doPlot)
                           pt_plus, pt_minus, ps_plus, ps_minus, 1, 'finite', 1, ...
                           params(:), scale_factor(:), []);
     time_MC = toc;
-    
-    % Empirical Moments (Corrected: Mean, Variance, Skewness, Kurtosis)
-    M1_MC = mean(ft1t2);
-    M2_MC = var(ft1t2);      % Match analytical Variance, not STD
-    M3_MC = skewness(ft1t2);
-    M4_MC = kurtosis(ft1t2); % Pearson standard Kurtosis
 
-    % =========================================================================
-    % STEP 3: ANALYTICAL MOMENTS
-    % =========================================================================
+    % Empirical moments: mean, variance, skewness, Pearson kurtosis.
+    M1_MC = mean(ft1t2);
+    M2_MC = var(ft1t2);
+    M3_MC = skewness(ft1t2);
+    M4_MC = kurtosis(ft1t2);
+
+    % --- Analytical moments ---
     tic;
     [M1_an, M2_an, M3_an, M4_an] = moments_generator(pt_plus, pt_minus, ...
                                                      ps_plus, ps_minus, drift_t1_t2);
     time_an = toc;
 
-    % =========================================================================
-    % STEP 4: DIAGNOSTIC PRINTING
-    % =========================================================================
+    % --- Diagnostic printing ---
     % Absolute errors |MC - analytical| for every moment (the mean clusters
     % around 0, so a relative error would be ill-defined there).
     err_M1 = abs(M1_MC - M1_an);
@@ -86,9 +79,7 @@ function compare_moments_MA(N_sim, M, dz, scale_factor, params, doPlot)
     fprintf('  %-10s | %12.6f | %12.6f | %11.4f \n', '4. Kurtosis', M4_an, M4_MC, err_M4);
     fprintf('========================================================\n\n');
 
-    % =========================================================================
-    % STEP 5: PLOTTING
-    % =========================================================================
+    % --- Plotting ---
     if doPlot
         figure('Name', 'MA Increment: Distribution and Moments', 'Position', [100, 100, 1000, 450]);
         

@@ -3,13 +3,27 @@ function print_diagnostics(k_AB, eta_AB, fval_AB, alpha_MA, beta_MA, fval_MA, ..
         moneyness_modified, c_mkt_calibration, expiries, nT, plot_flag)
 % PRINT_DIAGNOSTICS  Post-calibration report: parameters, per-maturity RMSE and
 %   a sample pricing comparison. plot_flag (optional) adds price/error plots.
+%
+% INPUTS:
+%   k_AB, eta_AB, fval_AB     : calibrated AB params and final SSE
+%   alpha_MA, beta_MA, fval_MA: calibrated MA params and final SSE
+%   alpha_GL, beta_GL, fval_GL: calibrated GL params and final SSE
+%   M, dz                     : GL FFT exponent (N = 2^M) and grid step
+%   discount_factor, yf, sigma_ATM : (M x 1) per maturity
+%   moneyness_modified        : (M x N) chi (NaN where no quote)
+%   c_mkt_calibration         : (M x N) market call prices (NaN where no quote)
+%   expiries                  : (M x 1) datetime expiry dates (labels)
+%   nT                        : number of maturities to report in the RMSE table
+%   plot_flag                 : (optional) logical, add price/error plots (default false)
+% OUTPUT:
+%   none (prints tables to the command window and, if plot_flag, draws figures)
 
 if nargin < 19
     plot_flag = false;
 end
 
 fprintf('Post-Calibration Diagnostics and Reporting...\n');
-% Compute model prices using calibrated parameters
+% Model prices at the calibrated parameters.
 c_mod_AB = price_AB([k_AB, eta_AB], discount_factor, yf, sigma_ATM, moneyness_modified);
 c_mod_MA = price_MA([alpha_MA, beta_MA], discount_factor, yf, sigma_ATM, moneyness_modified);
 c_mod_GL = price_GL(alpha_GL, beta_GL, M, dz, discount_factor, sigma_ATM, yf, moneyness_modified);
@@ -19,7 +33,6 @@ c_mod_AB(c_mod_AB < 0) = 0;
 c_mod_MA(c_mod_MA < 0) = 0;
 c_mod_GL(c_mod_GL < 0) = 0;
 
-% Calculate residuals
 res_AB = c_mkt_calibration - c_mod_AB;
 res_MA = c_mkt_calibration - c_mod_MA;
 res_GL = c_mkt_calibration - c_mod_GL;
@@ -65,7 +78,6 @@ num_samples = min(10, length(valid_cols));
 sample_col_indices = round(linspace(1, length(valid_cols), num_samples));
 selected_cols = valid_cols(sample_col_indices);
 
-% Initialize arrays for plotting if flag is true
 if plot_flag
     x_labels   = strings(num_samples, 1);
     px_mkt     = zeros(num_samples, 1);
@@ -96,10 +108,8 @@ for k = 1:num_samples
         diff_MA_bps, ...
         diff_GL_bps);
         
-    % Store data for plotting
     if plot_flag
-        % Simplified label since maturity is fixed
-        x_labels(k)   = sprintf('x=%.1f', moneyness_modified(target_r, c)); 
+        x_labels(k)   = sprintf('x=%.1f', moneyness_modified(target_r, c));
         px_mkt(k)     = c_mkt_calibration(target_r, c);
         px_mod_AB(k)  = c_mod_AB(target_r, c);
         px_mod_MA(k)  = c_mod_MA(target_r, c);

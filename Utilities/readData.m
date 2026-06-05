@@ -16,18 +16,18 @@ function [strikes, calls, puts, expiries] = readData(callPath, putPath, snapDate
 %   Untraded options keep their NaN price: the penny / no-arbitrage
 %   filtering is left to the bootstrap stage.
 %
-%   Inputs
-%     callPath   : folder containing the call CSV files
-%     putPath    : folder containing the put CSV files
-%     snapDate   : value date to extract, as datetime or yyyymmdd double
-%     expiryFile : (optional) path to Expiries_Futures.txt
+% INPUTS:
+%   callPath   - folder containing the call CSV files
+%   putPath    - folder containing the put CSV files
+%   snapDate   - value date to extract, as datetime or yyyymmdd double
+%   expiryFile - (optional) path to Expiries_Futures.txt
 %
-%   Outputs
-%     strikes    : 1-by-nK strike grid (index points)
-%     calls      : nT-by-nK call mid-prices, one row per maturity
-%     puts       : nT-by-nK put mid-prices, aligned with calls
-%     expiries   : nT-by-1 datetime expiry of each row (NaT if expiryFile
-%                  is not provided)
+% OUTPUTS:
+%   strikes  - 1-by-nK strike grid (index points)
+%   calls    - nT-by-nK call mid-prices, one row per maturity
+%   puts     - nT-by-nK put mid-prices, aligned with calls
+%   expiries - nT-by-1 datetime expiry of each row (NaT if expiryFile
+%              is not provided)
 
 % normalise the snapshot date: integer key for the CSV row lookup
 % and a datetime for the expiry comparison

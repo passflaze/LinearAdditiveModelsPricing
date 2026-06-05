@@ -1,30 +1,26 @@
 function price = CoC_pricing_analytical(params, scale_factor, F_t0_T2, K1, K2, df, diagnostic)
-% COC_PRICING_ANALYTICAL Computes the Semi-Analytic price of a Call-on-Call 
+% COC_PRICING_ANALYTICAL Computes the Semi-Analytic price of a Call-on-Call
 % by numerically integrating the exact Call price over the MA density.
 %
-% Inputs:
-%   alpha, beta - Tail decay parameters
-%   scale_factor      - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
-%   F_t0_T2     - Initial Forward price
-%   K1          - Strike of the Compound Option
-%   K2          - Strike of the Underlying Call
-%   df          - Vector of discount factors [df_t1, df_t2]
-%   diagnostic  - (Optional) Boolean flag to enable debug prints. Default is false.
+% INPUTS:
+%   params       - Tail decay parameters [alpha, beta]
+%   scale_factor - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
+%   F_t0_T2      - Initial forward price
+%   K1           - Strike of the compound option
+%   K2           - Strike of the underlying call
+%   df           - Vector of discount factors [df_t1, df_t2]
+%   diagnostic   - (Optional) Boolean flag to enable debug prints. Default is false.
+% OUTPUT:
+%   price        - The discounted semi-analytic price of the Call-on-Call
 
-    % =========================================================================
-    % DEFAULT ARGUMENT HANDLING
-    % =========================================================================
     if nargin < 8 || isempty(diagnostic)
         diagnostic = false;
     end
     alpha = params(1);
     beta = params(2);
-    
-    if diagnostic, tic; end % Start execution timer
 
-    % =========================================================================
-    % DIAGNOSTICS: INPUT VALIDATION
-    % =========================================================================
+    if diagnostic, tic; end
+
     if diagnostic
         fprintf('\n==================================================\n');
         fprintf('  RUNNING DIAGNOSTICS FOR CoC_pricing_analytical\n');

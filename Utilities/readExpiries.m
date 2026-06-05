@@ -4,15 +4,14 @@ function expTable = readExpiries(filePath)
 %   expTable = READEXPIRIES(filePath) parses Expiries_Futures.txt, whose
 %   rows have the form "<CODE> <YYYY/MM/DD>" (e.g. "JUN20 2020/05/14").
 %
-%   Input
-%     filePath : path to Expiries_Futures.txt
+% INPUTS:
+%   filePath - path to Expiries_Futures.txt
 %
-%   Output
-%     expTable : table with variables
-%                  code   (string)   contract code, e.g. "JUN20"
-%                  expiry (datetime) expiry date
-%                  yyyymm (double)   contract year-month, e.g. 202006,
-%                                    used to match the option CSV files
+% OUTPUT:
+%   expTable - table with columns:
+%                code   (string)   contract code, e.g. "JUN20"
+%                expiry (datetime) expiry date
+%                yyyymm (double)   contract year-month, e.g. 202006
 
 raw = strip(readlines(filePath));
 raw = raw(raw ~= "");                       % drop empty lines

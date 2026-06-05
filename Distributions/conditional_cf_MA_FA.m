@@ -1,36 +1,29 @@
 function y = conditional_cf_MA_FA(u, params, scale_factor)
-%CONDITIONAL_CF_MA_FA Conditional-on-jump CF of the MA finite-activity increment.
-%   Y = CONDITIONAL_CF_MA_FA(U, PARAMS, SCALE_FACTOR) returns the CF of the MA
-%   increment over [s, t] CONDITIONAL on at least one jump occurring, i.e.
-%   (full increment CF - atom)/(1 - atom), where the atom is the no-jump point
-%   mass c = (pt_plus*pt_minus)/(ps_plus*ps_minus). The tail decays are derived
-%   internally from the parameters and the two scale factors.
+% CONDITIONAL_CF_MA_FA  Conditional-on-jump CF of the MA finite-activity increment.
 %
-%   This conditional CF vanishes at infinity (lim_{|u|->inf} y = 0), so it can
-%   be safely FFT-inverted, while the discrete atom is handled separately by the
-%   Bernoulli split in FA_simulation (cf. project hint 3.c.i and [5]).
+%   Returns the CF of the MA increment over [s, t] CONDITIONAL on at least one
+%   jump: (full increment CF - atom) / (1 - atom), where the no-jump atom is
+%   c = (pt_plus * pt_minus) / (ps_plus * ps_minus).
+%   Vanishes as |u| -> inf, so it can be safely FFT-inverted; the discrete atom
+%   is handled separately by the Bernoulli split in FA_simulation.
 %
-%   The function is fully vectorized in the frequency variable U.
-%
-%   Inputs:
-%       u            - real-valued frequencies (scalar or array)
-%       params       - [alpha; beta] MA shape parameters
-%       scale_factor - [scale_s; scale_t] scale factors at s (t1) and t (t2)
-%
-%   Outputs:
-%       y        - Complex characteristic function values evaluated at each U
-%
-    ps_plus = params(2)/scale_factor(1); ps_minus = params(1)/scale_factor(1);
-    pt_plus = params(2)/scale_factor(2); pt_minus = params(1)/scale_factor(2);
+% INPUTS:
+%   u            - (vector) real-valued frequencies
+%   params       - [alpha; beta] MA shape parameters
+%   scale_factor - [scale_s; scale_t] scale factors at s (t1) and t (t2)
+% OUTPUT:
+%   y            - (complex vector) conditional CF evaluated at u
 
-    % 1. Compute the integrated intensity Lambda over [s, t]
+    ps_plus  = params(2) / scale_factor(1);
+    ps_minus = params(1) / scale_factor(1);
+    pt_plus  = params(2) / scale_factor(2);
+    pt_minus = params(1) / scale_factor(2);
+
     lambda_t_s = pointmasscalculator(pt_plus, pt_minus, ps_plus, ps_minus);
 
-    % 2. Vectorized Rational Fraction Terms
-    term1 = (ps_plus - 1i.*u) ./ (pt_plus - 1i.*u);
+    term1 = (ps_plus  - 1i.*u) ./ (pt_plus  - 1i.*u);
     term2 = (ps_minus + 1i.*u) ./ (pt_minus + 1i.*u);
 
-    % 3. Conditional CF Calculation
     phi = (1 / lambda_t_s) .* log(term1 .* term2);
 
     num = exp(lambda_t_s.*phi)-1;

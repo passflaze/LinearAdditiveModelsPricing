@@ -32,10 +32,7 @@ function [cdf_fine, x_fine] = tail_adjustment(x_grid, cdf_raw, refinement_factor
     N = length(cdf_raw);
     midpoint = floor(N / 2);
     
-    % =========================================================================
-    % 2 & 3. OUTWARD SCAN 
-    % =========================================================================
-    % Isolate the strictly monotonic inner core of the CDF
+    % --- Isolate the strictly monotonic inner core of the CDF ---
     idx_b = midpoint;
     while idx_b > 2 && cdf_raw(idx_b - 1) > 0 && cdf_raw(idx_b - 1) < cdf_raw(idx_b)
         idx_b = idx_b - 1;
@@ -49,9 +46,7 @@ function [cdf_fine, x_fine] = tail_adjustment(x_grid, cdf_raw, refinement_factor
     x_core = x_grid(idx_b:idx_e);
     cdf_core = cdf_raw(idx_b:idx_e);
     
-    % =========================================================================
-    % 4 & 5. GRID REFINEMENT & INTERPOLATION
-    % =========================================================================
+    % --- Grid refinement and interpolation ---
     step_raw = x_grid(2) - x_grid(1);
     step_fine = step_raw / refinement_factor;
     x_fine = (x_grid(1):step_fine:x_grid(end))';
@@ -70,9 +65,7 @@ function [cdf_fine, x_fine] = tail_adjustment(x_grid, cdf_raw, refinement_factor
         cdf_fine(core_mask) = cdf_test_spline;
     end
     
-    % =========================================================================
-    % 6. LAMBDA CALCULATION 
-    % =========================================================================
+    % --- Exponential decay rates at the core boundaries ---
     xb = x_core(1); xb_next = x_core(2);
     Pb = cdf_core(1); Pb_next = cdf_core(2);
     
@@ -82,15 +75,13 @@ function [cdf_fine, x_fine] = tail_adjustment(x_grid, cdf_raw, refinement_factor
     lambda_minus = (log(Pb_next) - log(Pb)) / (xb_next - xb);
     lambda_plus  = (log(1 - Pe_prev) - log(1 - Pe)) / (xe - xe_prev);
     
-    % =========================================================================
-    % 7. EXPONENTIAL SPLICING & EXACT BOUNDARY FORCING
-    % =========================================================================
-    % Left Tail
+    % --- Exponential tail splicing and exact boundary forcing ---
+    % Left tail
     left_mask = (x_fine < xb);
     tail_sx_vals = Pb .* exp(lambda_minus .* (x_fine(left_mask) - xb));
     cdf_fine(left_mask) = tail_sx_vals;
     
-    % Right Tail
+    % Right tail
     right_mask = (x_fine > xe);
     tail_dx_vals = 1 - (1 - Pe) .* exp(-lambda_plus .* (x_fine(right_mask) - xe));
     cdf_fine(right_mask) = tail_dx_vals;

@@ -1,26 +1,25 @@
 function price = CoC_pricing_FULLanalytical(params, scale_factor, F_t0_T2, K1, K2, df, diagnostic)
-% COC_PRICING_ANALYTICAL Computes the Exact Analytic price of a Call-on-Call 
+% COC_PRICING_FULLANALYTICAL Computes the exact analytic price of a Call-on-Call
 % by applying the closed-form primitives of the MA density (Section 5.3.2).
 %
-% Inputs:
-%   params            - Tail decay parameters [alpha, beta]
-%   scale_factor      - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
-%   F_t0_T2           - Initial Forward price
-%   K1                - Strike of the Compound Option
-%   K2                - Strike of the Underlying Call
-%   df                - Vector of discount factors [df_t1, df_t2]
-%   diagnostic        - (Optional) Boolean flag to enable debug prints. Default is false.
+% INPUTS:
+%   params       - Tail decay parameters [alpha, beta]
+%   scale_factor - Vector of integrated volatilities [sigma*sqrt(t1), sigma*sqrt(t2)]
+%   F_t0_T2      - Initial forward price
+%   K1           - Strike of the compound option
+%   K2           - Strike of the underlying call
+%   df           - Vector of discount factors [df_t1, df_t2]
+%   diagnostic   - (Optional) Boolean flag to enable debug prints. Default is false.
+% OUTPUT:
+%   price        - The discounted analytic price of the Call-on-Call
 
-    % =========================================================================
-    % DEFAULT ARGUMENT HANDLING
-    % =========================================================================
     if nargin < 7 || isempty(diagnostic)
         diagnostic = false;
     end
     alpha = params(1);
     beta = params(2);
     
-    if diagnostic, tic; end % Start execution timer
+    if diagnostic, tic; end
 
     % 1. Forward conditional discount factor
     df_t1_t2 = df(2) / df(1);
@@ -43,10 +42,8 @@ function price = CoC_pricing_FULLanalytical(params, scale_factor, F_t0_T2, K1, K
         warning('Diagnostic Warning: fzero did not converge normally! Exit flag: %d', exitflag);
     end
     
-    % =========================================================================
-    % 4. FULLY ANALYTICAL INTEGRATION (SECTION 5.3.2)
-    % =========================================================================
-    
+    % 4. Fully analytical integration (Section 5.3.2)
+
     % --- 4.1 Define Process and Density Parameters ---
     s1 = scale_factor(1);
     s2 = scale_factor(2);

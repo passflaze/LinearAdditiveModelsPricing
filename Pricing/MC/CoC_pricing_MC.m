@@ -14,19 +14,19 @@ function [price, CI, ft1, call_price_t1, sigma] = CoC_pricing_MC(params, scale_f
 %   N_sim           - (scalar) number of Monte Carlo simulated paths
 %   M               - (scalar) grid size exponent, N = 2^M
 %   dz              - (scalar) step size in the z-domain
-%   N_grid          - (scalar) number of points for the MA CDF grid
 %   forward         - (scalar) forward price F(t0, T2)
 %   K1              - (scalar) strike of the compound option (paid at t1)
 %   K2              - (scalar) strike of the inner vanilla call (paid at t2)
 %   discount_factors- [B(t0,t1), B(t0,t2)] discount factors
 %   model           - (string) model identifier: 'MA', 'GL', or 'AB'
-%   opts.verbose     - (optional, default true) print the per-model opts.verbose.
+%   opts            - (optional) struct with fields .verbose and .plot (default false)
 %
 % OUTPUTS:
 %   price           - (scalar) estimated fair value of the Call-on-Call at t0
 %   CI              - (1x2) 95% confidence interval [lower, upper]
 %   ft1             - (vector) simulated increments at t1
 %   call_price_t1   - (vector) inner call prices at t1 for each path
+%   sigma           - (scalar) sample standard deviation of the discounted payoff
 
     % --- Options Initialization ---
     if nargin < 11 || isempty(opts)

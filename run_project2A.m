@@ -62,9 +62,6 @@
 
 clear; clc; close all;
 
-% =========================================================================
-% PATHS INITIALIZATION
-% =========================================================================
 addpath("Run_Functions/");
 addpath("Utilities/");
 addpath("Distributions/");
@@ -76,15 +73,11 @@ addpath("Simulation/");
 addpath("Simulation/Simulation_MA/");
 addpath("Hedging/");
 
-%% =========================================================================
-%  EX 0 - PDF COMPARISON (MA / AB / GL) 
-%  =========================================================================
+%% EX 0 — PDF comparison
 plot_ex0 = false;
 run_ex0(plot_ex0);
 
-%% =========================================================================
-%  EX 1 + EX 2 - CURVE BOOTSTRAP & VOLATILITY SURFACE CALIBRATION
-%  =========================================================================
+%% EX 1+2 — Curve bootstrap and surface calibration
 opts_ex2            = struct();
 opts_ex2.callpath   = "Data/datacalls";
 opts_ex2.putpath    = "Data/dataputs";
@@ -96,9 +89,7 @@ opts_ex2.plot       = false;
 
 [params, market] = run_ex2(opts_ex2);   
 
-%% =========================================================================
-%  EX 3 - FORWARD-START PRICING 
-%  =========================================================================
+%% EX 3 — Forward-start pricing
 opts_ex3 = struct();
 opts_ex3.plot = false;
 opts_ex3.verbose = false;
@@ -117,9 +108,7 @@ opts_ex3.mc.M_AB = 16;
 
 LA_results_es3 = run_ex3(params, market, opts_ex3);
 
-%% =========================================================================
-%  EX 4 - CoC-PoP-Chooser PRICING 
-%  =========================================================================
+%% EX 4 — Exotic pricing (CoC, PoP, Chooser)
 opts_ex4 = struct();
 opts_ex4.plot = false;
 opts_ex4.verbose = false;
@@ -140,13 +129,9 @@ opts_ex4.mc.M_AB = 20;
 
 LA_results_es4 = run_ex4(params, market, opts_ex4);
 
-%% =========================================================================
-%  EX 6 - HEDGING 
-%  =========================================================================
+%% EX 6 — Dynamic hedging
 
-%% =========================================================================
-%  Scenario 1 - Long Chooser Delta-Vega Hedging
-%  =========================================================================
+%% Scenario 1 — Long Chooser, Delta-Vega hedge
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 0; 
 PoP_euro = 0; 
@@ -154,7 +139,7 @@ Ch_euro  = 1e6;
 
 % --- HEDGING BASKET (fully defined here) ---------------------------------
 products        = {'Call', 'Put'};
-hedge_strike    = [   0,      0];
+hedge_strike    = [   0,      0];      % 0 means ATM , otherwise specify the strike
 hedge_mat       = [   4,      2];
 greeks          = {'Delta','Vega'};
 tuesdays = [datetime(2020, 6, 9); datetime(2020, 6, 16)];
@@ -166,9 +151,7 @@ fprintf('    Target Greeks: Delta, Vega\n');
 LA_results_es6.test1 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% =========================================================================
-%  Scenario 1 - Long Chooser Gamma-Vega Hedging
-%  =========================================================================
+%% Scenario 2 — Long Chooser, Gamma-Vega hedge
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 0; 
 PoP_euro = 0; 
@@ -188,9 +171,7 @@ fprintf('    Target Greeks: Gamma, Vega\n');
 LA_results_es6.test2 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% =========================================================================
-%  Scenario 2 - Long CoC, PoP Gamma-Vega Hedging
-%  =========================================================================
+%% Scenario 3 — Long CoC+PoP, Gamma-Vega hedge
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
 PoP_euro = 1e6; 
@@ -210,9 +191,7 @@ fprintf('    Target Greeks: Gamma, Vega\n');
 LA_results_es6.test3 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% =========================================================================
-%  Scenario 2 - Long CoC, PoP Delta-Gamma-Vega Hedging
-%  =========================================================================
+%% Scenario 4 — Long CoC+PoP, Delta-Gamma-Vega hedge
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
 PoP_euro = 1e6; 
@@ -232,9 +211,7 @@ fprintf('    Target Greeks: Gamma, Vega, Delta\n');
 LA_results_es6.test4 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% =========================================================================
-%  Scenario 3 - Long CoC, Short Chooser Vega Hedging
-%  =========================================================================
+%% Scenario 5 — Long CoC + Short Chooser, Vega hedge
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
 PoP_euro = 0; 
@@ -254,9 +231,7 @@ fprintf('    Target Greeks: Vega\n');
 LA_results_es6.test5 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% =========================================================================
-%  Scenario 3 - Long CoC, Short Chooser Delta Hedging
-%  =========================================================================
+%% Scenario 6 — Long CoC + Short Chooser, Delta hedge
 bump_sigma = 1e-2 * ones(8,1);
 CoC_euro = 1e6; 
 PoP_euro = 0; 
@@ -276,14 +251,9 @@ fprintf('    Target Greeks: Delta\n');
 LA_results_es6.test6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma, ...
                          CoC_euro, PoP_euro, Ch_euro, greeks, tuesdays, dynamic, params, market);
 
-%% =========================================================================
-%  FINAL VISUAL COMPARISON OF BACKTEST
-%  =========================================================================
+%% Final backtest comparison
 plot_backtest_results(LA_results_es6);
 
-%% =========================================================================
-%  COMPLETED
-%  =========================================================================
 fprintf('\n=========================================================================\n');
 fprintf('  PROJECT 2A PIPELINE COMPLETED\n');
 fprintf('=========================================================================\n');

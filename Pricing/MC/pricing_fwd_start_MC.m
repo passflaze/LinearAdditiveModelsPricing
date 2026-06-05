@@ -44,6 +44,7 @@ function [price, CI, diag, sigma] = pricing_fwd_start_MC(model, params, sigma_T1
 %   diag  : struct with the cleaned conditional CDF (x_cond, cdf_cond) and the
 %           simulated increment W (for plotting / FFT cross-checks). Empty for
 %           the MA branch.
+%   sigma : sample standard deviation of the discounted payoff (1 x N_K)
 
     % --- Options Initialization ---
     if nargin < 12 || isempty(opts)

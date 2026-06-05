@@ -14,25 +14,22 @@ function sigma = sigmaATM(c_atm, B, yf, expiries, doPlot)
 %   Reference: Baviera & Massaria (2026), "The additive Bachelier model",
 %   J. Comput. Appl. Math. 487, 117741, Eq. (15).
 %
-%   Inputs  (all column vectors, one entry per maturity)
-%     c_atm    : ATM call prices   (output of callATM.m)
-%     B        : discount factors  (output of bootstrap.m)
-%     yf       : year fractions to each maturity (act/365)
-%     expiries : (optional) datetime vector of expiry dates, used as x-axis labels
-%     doPlot   : (optional) boolean variables to govern the plot
+% INPUTS:
+%   c_atm    - (column vector) ATM call prices, one per maturity
+%   B        - (column vector) discount factors
+%   yf       - (column vector) year fractions (act/365)
+%   expiries - (column vector, optional) datetime expiry dates; used as x-axis labels
+%   doPlot   - (logical, optional, default false) draw the term-structure figure
 %
-%   Output
-%     sigma : Bachelier ATM implied volatilities (column vector)
+% OUTPUT:
+%   sigma    - (column vector) Bachelier ATM implied volatilities
 
-
-% --- Arguments Initialization ---
 if nargin < 5 || isempty(doPlot)
     doPlot = false;
 end
 if nargin < 4 || isempty(expiries)
     expiries = [];
 end
-% -----------------------------------------
 
 c_atm = c_atm(:);
 B     = B(:);
@@ -40,7 +37,6 @@ yf    = yf(:);
 
 sigma = sqrt(2*pi ./ yf) .* (c_atm ./ B);
 
-% --- Plotting Block ---
     if doPlot
         figure('Name', 'Bachelier ATM Implied Volatility', 'Color', 'white');
         

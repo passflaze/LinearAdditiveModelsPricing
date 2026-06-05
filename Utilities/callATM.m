@@ -6,14 +6,14 @@ function c = callATM(C, P, K, forward, B)
 %   for recovery, to avoid propagating unreliable quotes.
 %   Points where both call and put are NaN are dropped entirely.
 %
-% Inputs
-%   C       : call prices (row or column vector)
-%   P       : put prices  (same size as C)
-%   K       : strikes     (same size as C)
-%   forward : ATM forward price (scalar)
-%   B       : discount factor (scalar), required only when NaN calls exist
-% Output
-%   c : interpolated call price at the forward
+% INPUTS:
+%   C       - call prices (row or column vector)
+%   P       - put prices  (same size as C)
+%   K       - strikes     (same size as C)
+%   forward - ATM forward price (scalar)
+%   B       - discount factor (scalar), required only when NaN calls exist
+% OUTPUT:
+%   c       - interpolated call price at the forward
 
 C = C(:);  P = P(:);  K = K(:);
 

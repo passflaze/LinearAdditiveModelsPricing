@@ -12,6 +12,8 @@ function plot_iv_AB(k_AB, eta_AB, discount_factor, yf, sigma_ATM, ...
 %   moneyness_modified  : (M x N) chi (NaN where no data)
 %   c_mkt_calibration   : (M x N) market call prices (NaN where no data)
 %   expiries            : (M x 1) datetime expiry dates (labels)
+% OUTPUT:
+%   none (draws the normalized-smile collapse and absolute-IV figures)
 
     params = [k_AB; eta_AB];
 

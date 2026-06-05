@@ -29,10 +29,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
 % OUTPUT:
 %   LA_results_es6 - (struct) .Greeks .Basket .Weights .Residuals .Cost .Backtest
 
-    %% ========================================================================
-    %  0. ENVIRONMENT SETUP
-    %  ========================================================================
-    % Addpaths usually done in your main folder structure
+    %% --- Environment setup ---
     addpath("Utilities/");
     addpath("Distributions/");
     addpath(genpath('Pricing/'));
@@ -45,9 +42,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     fprintf('        EX.6 - RISK MANAGEMENT: AB EXOTICS DELTA-GAMMA-VEGA HEDGE        \n');
     fprintf('=========================================================================\n\n');
 
-    %% ========================================================================
-    %  0b. HEDGE FEASIBILITY CHECK (fail fast, before any pricing)
-    %  ========================================================================
+    %% --- Hedge feasibility check ---
     % An exact hedge of M Greeks needs at least M independent instruments.
     % With fewer instruments the system is under-determined: build_hedge would
     % silently return a least-squares fit that does NOT zero all the targeted
@@ -64,26 +59,22 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
             strjoin(greeks, ','), nGreeks, nInstr, strjoin(products, ','));
     end
 
-    %% ========================================================================
-    %  1. MARKET CALIBRATION & STATE UNPACKING (t0)
-    %  ========================================================================
+    %% --- Market calibration and state unpacking (t0) ---
     opts            = struct();
     opts.callpath   = "Data/datacalls";
     opts.putpath    = "Data/dataputs";
     opts.expiryFile = "Data/Expiries_Futures.txt";
     opts.valueDate  = datetime(2020, 06, 02);
-    opts.verbose    = false;    
-    opts.plot       = false;    
+    opts.verbose    = false;
+    opts.plot       = false;
 
     if nargin < 12 || isempty(params) || isempty(market)
         [~, params, market] = evalc('calibrate_surface(struct(''verbose'', false))');
     end
 
-    % Time indices
-    iT1 = 2;  
+    iT1 = 2;
     iT2 = 4;
 
-    % Compute scale factors
     I0_AB_val = I0_AB(0, params.AB);
     sigma_t_AB = market.sigma_ATM / I0_AB_val;
     scale_factor_exotic  = [sigma_t_AB(iT1)*sqrt(market.yf(iT1)), ...
@@ -91,27 +82,19 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     scale_factor_vanilla = sigma_t_AB .* sqrt(market.yf);
     F_t0_t2 = market.forward(iT2);
 
-    %% ========================================================================
-    %  2. PRICING PARAMETERS
-    %  ========================================================================
+    %% --- Pricing parameters ---
     params_hedge = struct();
     params_hedge.forward = F_t0_t2;
     params_hedge.K1      = 1;
     params_hedge.K2      = F_t0_t2;
     params_hedge.Kc      = F_t0_t2;   % ATM default
 
-    % Numerical & Simulation Settings
     mc = struct('N_sim', 1e6, 'M', 16, 'dz', 5e-3, 'N_grid', 300, 'seed', 1234);
 
     bumps      = struct('dF', 1e-4*F_t0_t2, 'dSig', bump_sigma);
     costRule   = struct('fut_bp', 1, 'opt_bp', 4);
 
-    %% ========================================================================
-    %  3. HEDGING BASKET (driven by the caller's 'products' spec) & GREEKS (t0)
-    %  ========================================================================
-    % One instrument per entry of 'products'. Strike of each leg is the caller's
-    % absolute strike in hedge_strike (0 = ATM = forward at that leg); 'Future'
-    % legs ignore the strike. 
+    %% --- Hedging basket and initial Greeks (t0) ---
     fprintf('Building hedging basket from products spec...\n');
 
     empty_greek = struct('price', 0, 'delta', 0, 'gamma', 0, 'vega', 0);
@@ -177,16 +160,13 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
 
         w_exotics(ee) = sign(active_budgets(ee)) * floor(abs(active_budgets(ee)) / G(ee).price);
 
-        % Aggregate unitary portfolio Greeks
         port_t0_price = port_t0_price + w_exotics(ee) * G(ee).price;
         port_delta    = port_delta    + w_exotics(ee) * G(ee).delta;
         port_gamma    = port_gamma    + w_exotics(ee) * G(ee).gamma;
         port_vega     = port_vega     + w_exotics(ee) * G(ee).vega;
     end
 
-    %% ========================================================================
-    %  4. STATIC HEDGING RESOLUTION & TRANSACTION COSTS (t0)
-    %  ========================================================================
+    %% --- Static hedge weights and initial costs (t0) ---
     portfolio_greeks.delta = port_delta;
     portfolio_greeks.gamma = port_gamma;
     portfolio_greeks.vega  = port_vega;
@@ -197,9 +177,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
     costs = hedging_cost(w0, instr, costRule);
     fprintf('  Total Initial Hedging Cost: $%+.4e\n\n', costs.total);
 
-    %% ========================================================================
-    %  5. DYNAMIC BACKTESTING OVER FUTURE DATES
-    %  ========================================================================
+    %% --- Dynamic backtesting ---
     fprintf('Initializing dynamic backtest...\n');
     
 
@@ -234,7 +212,6 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
         opts_array(t).valueDate = tuesdays(t);
     end
 
-    % Execute the backtest
     try
         Backtest_Results = hedge_backtest(state_t0, opts_array, prc_params, hedge_rules, greeks);
     catch ME
@@ -242,9 +219,7 @@ function LA_results_es6 = run_ex6(products, hedge_strike, hedge_mat, bump_sigma,
         Backtest_Results = ME.message;
     end
 
-    %% ========================================================================
-    %  6. RESULTS PACKAGING & CLEANUP
-    %  ========================================================================
+    %% --- Results packaging ---
     LA_results_es6 = struct();
     LA_results_es6.Greeks    = G;          % exotic per-type Greeks
     LA_results_es6.Basket    = instr;      % hedge instruments + their Greeks

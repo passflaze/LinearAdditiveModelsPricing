@@ -1,45 +1,33 @@
 function [params, market] = run_ex2(opts)
-% CALIBRATE_SURFACE Calibrates the volatility surface to the 3 Linear Additive
-% Models (Additive Bachelier, Minimal Additive, Generalized Laplace) and
-% returns the calibrated parameters.
+% RUN_EX2  Calibrate the AB, MA, and GL models to the WTI vol surface.
+%   Performs curve bootstrapping, ATM vol extraction, OTM surface filtering,
+%   and model calibration. Returns reusable structs consumed by run_ex3/4/6.
 %
-% This is the "function" version of the ex2.m script: it performs curve
-% bootstrapping, ATM vol calibration, surface filtering, and calibration
-% of the 3 models, returning the parameters in a reusable struct (e.g., for
-% run_ex3.m) without having to repeat the code.
+% INPUTS:
+%   opts - (struct, optional) all fields have defaults:
+%     .callpath    - calls folder       (default "Data/datacalls")
+%     .putpath     - puts folder        (default "Data/dataputs")
+%     .expiryFile  - expiry file path   (default "Data/Expiries_Futures.txt")
+%     .valueDate   - value date         (default 2020-06-02)
+%     .x_min       - dollar-moneyness lower bound  (default -30)
+%     .x_max       - dollar-moneyness upper bound  (default  30)
+%     .M           - FFT grid exponent for GL      (default 15)
+%     .dz          - FFT grid step for GL          (default 2.5e-3)
+%     .verbose     - print full report             (default false)
+%     .plot        - draw term-structure figures   (default false)
 %
-% INPUT (opts, optional struct -- all fields have defaults):
-%   opts.callpath    : calls file path            (default "Data/datacalls")
-%   opts.putpath     : puts file path             (default "Data/dataputs")
-%   opts.expiryFile  : expiries file path         (default "Data/Expiries_Futures.txt")
-%   opts.valueDate   : value date (datetime)      (default 2020-06-02)
-%   opts.x_min       : dollar-moneyness band min  (default -30)
-%   opts.x_max       : dollar-moneyness band max  (default  30)
-%   opts.M           : FFT exponent for GL        (default 15)
-%   opts.dz          : FFT grid step for GL       (default 2.5e-3)
-%   opts.verbose     : true to print the report   (default true)
-%   opts.plot        : true to plot distributions (default false)
-%
-% OUTPUT:
-%   params : struct with calibrated parameters; each field is a COLUMN VECTOR
-%            according to the params(1)/params(2) convention used throughout
-%            the project (cf_*, pdf_*, price_*, lewis_FFT_*).
-%       .AB   -> [k;     eta ]
-%       .MA   -> [alpha; beta]
-%       .GL   -> [alpha; beta]
-%   market : struct with market and support data (column vectors)
-%       .strikes, .calls, .puts, .expiries, .valueDate
-%       .discount_factor, .forward, .R2
-%       .c_ATM, .sigma_ATM, .yf
-%       .moneyness_modified, .c_mkt_calibration
+% OUTPUTS:
+%   params - (struct) calibrated parameters (column vectors):
+%              .AB -> [k; eta]  .MA -> [alpha; beta]  .GL -> [alpha; beta]
+%   market - (struct) market and support data (column vectors):
+%              .strikes .calls .puts .expiries .valueDate
+%              .discount_factor .forward .R2
+%              .c_ATM .sigma_ATM .yf .moneyness_modified .c_mkt_calibration
 
 addpath("Calibration/Calibration_MA/");
 addpath("Calibration/Calibration_AB/");
 addpath("Calibration/Calibration_GL/");
 
-% =========================================================================
-% INPUT HANDLING / DEFAULTS
-% =========================================================================
 if nargin < 1 || isempty(opts)
     opts = struct();
 end
@@ -59,16 +47,12 @@ fprintf('=======================================================================
 fprintf('             VOLATILITY SURFACE CALIBRATION ENGINE                       \n');
 fprintf('=========================================================================\n\n');
 
-%% =========================================================================
-% STEP 1: DATA LOADING AND BOOTSTRAPPING
-% =========================================================================
+%% --- Data loading and bootstrapping ---
 vb('STEP 1: Loading data and bootstrapping curve...\n');
 
-% Read market options data
 [strikes, calls, puts, expiries] = readData(opts.callpath, opts.putpath, ...
                                              opts.valueDate, opts.expiryFile);
 
-% Bootstrap synthetic discount factors and forwards
 nT = numel(expiries);
 discount_factor = zeros(nT, 1);
 forward         = zeros(nT, 1);
@@ -78,7 +62,6 @@ for k = 1:nT
     [discount_factor(k), forward(k), R2(k)] = bootstrap(puts(k,:), calls(k,:), strikes);
 end
 
-% Report Bootstrap Results
 vb("\n--- Bootstrap Results (Value Date: %s) ---\n", string(opts.valueDate, "yyyy-MM-dd"));
 vb("%-12s  %10s  %10s  %8s\n", "Expiry", "D(t,T)", "F(t,T)", "R^2");
 for k = 1:nT
@@ -88,13 +71,10 @@ for k = 1:nT
 end
 vb('-------------------------------------------------------------------------\n\n');
 
-% Calculate the standard year fraction and zero rates
 yf = yearfrac(opts.valueDate, expiries, 3);
 zero_rates = -log(discount_factor) ./ yf;
 
-%% =========================================================================
-% STEP 2: ATM VOLATILITY CALIBRATION & MONEYNESS GENERATION
-% =========================================================================
+%% --- ATM vol calibration and moneyness generation ---
 vb('STEP 2: Calibrating ATM Volatility and filtering surface...\n');
 c_ATM = zeros(length(forward), 1);
 for i = 1:length(forward)
@@ -118,9 +98,7 @@ x_max = opts.x_max;
 vb('  -> Surface filtered on dollar moneyness x in [%g, %g] $ and prepared for optimization.\n\n', ...
     x_min, x_max);
 
-%% =========================================================================
-% STEP 3: ADDITIVE BACHELIER (AB) MODEL CALIBRATION
-% =========================================================================
+%% --- AB model calibration ---
 vb('STEP 3: Calibrating Additive Bachelier (AB) Model via fmincon...\n');
 
 if opts.verbose, ab_disp = 'iter'; else, ab_disp = 'off'; end
@@ -145,9 +123,7 @@ k_AB   = x_opt_AB(1);
 vb('\n  -> Optimal parameters found: k = %.6f, eta = %.6f.\n', k_AB, eta_AB);
 vb('  -> AB Calibration completed (exitflag = %d, SSE = %.6g).\n\n', exitflag_AB, fval_AB);
 
-%% =========================================================================
-% STEP 4: MINIMAL ADDITIVE (MA) MODEL CALIBRATION
-% =========================================================================
+%% --- MA model calibration ---
 vb('STEP 4: Calibrating Minimal Additive (MA) Model via fminbnd...\n');
 
 ALPHA_FIX = 1.0;
@@ -188,9 +164,7 @@ elseif opts.plot
            'sigma_ATM, moneyness_modified, c_mkt_calibration, expiries);']);
 end
 
-%% =========================================================================
-% STEP 5: GENERALIZED LAPLACE (GL) MODEL CALIBRATION
-% =========================================================================
+%% --- GL model calibration ---
 vb('STEP 5: Calibrating Generalized Laplace (GL) Model via fmincon...\n');
 
 M  = opts.M;
@@ -209,9 +183,7 @@ beta_GL  = x_opt_GL(2);
 vb('\n  -> Optimal parameters found: alpha = %.6f, beta = %.6f.\n', alpha_GL, beta_GL);
 vb('  -> GL Calibration completed (exitflag = %d, SSE = %.6g).\n\n', exitflag_GL, fval_GL);
 
-%% =========================================================================
-% STEP 6: DIAGNOSTICS & PACK OUTPUTS
-% =========================================================================
+%% --- Diagnostics and output packing ---
 if opts.verbose
     print_diagnostics(k_AB, eta_AB, fval_AB, alpha_MA, beta_MA, fval_MA, ...
         alpha_GL, beta_GL, fval_GL, M, dz, discount_factor, yf, sigma_ATM, ...
@@ -250,12 +222,10 @@ if nargout > 1
     market.yf                 = yf;
     market.moneyness_modified = moneyness_modified;
     market.c_mkt_calibration  = c_mkt_calibration;
-    market.zero_rates         = zero_rates; % Added for completeness
+    market.zero_rates         = zero_rates;
 end
 
-%% =========================================================================
-% STEP 7: PLOTTING SUITE (Executed only if opts.plot == true)
-% =========================================================================
+%% --- Plotting suite ---
 if opts.plot
     % --- 7.1: Discount Factors and Zero Rates ---
     figure('Name', 'Discount Factors and Zero Rates', 'Color', 'w');
